@@ -1,0 +1,39 @@
+{
+    "manifest_version": 3,
+    "name": "AZ Chat Bot",
+    "version": "0.1",
+    "author": "Ujjwal Gupta",
+    "description": "Helps to solve AZ problemset using AI Chat Bot",
+    "permissions": [
+      "storage",
+      "tabs"
+    ],
+    "content_scripts": [
+      {
+        "matches": [
+          "https://maang.in/*"
+        ],
+        "js": [
+          "content.js"
+        ]
+      }
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "web_accessible_resources" : [
+      {
+        "resources": [],
+        "matches" : ["<all_urls>"]
+      }
+    ],
+    "action": {
+      "default_icon": {
+        "16": "assests/logo.png",
+        "24": "assests/logo.png",
+        "32": "assests/logo.png"
+      },
+      "default_popup": "index.html",
+      "default_title": "AZ Chat Bot"
+    }
+  }
