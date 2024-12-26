@@ -1,5 +1,8 @@
+
+
 let lastUrl = ""
 let problemDetails = {}
+let data = ""
 
 function areRequiredElementsLoaded() {
   const problemTitle = document.getElementsByClassName("Header_resource_heading__cpRp1")[0]?.textContent.trim();
@@ -20,17 +23,13 @@ const observer = new MutationObserver((mutations) => {
   mutations.forEach((mutation) => {
       if (mutation.type === "childList" && isProblemsPage()) {
           if (isUrlChanged() || !document.getElementById("help-button")) {
-              console.log("Checking content loading...");
-              
               // Wait until all required content is loaded
+              injectScript();
               if (areRequiredElementsLoaded()) {
-                  console.log("Content fully loaded, adding help button");
                   cleanElements();
-                  addHelpButton(); // Show the help button
-                  extractProblemDetails(); // Extract the problem details
-              } else {
-                  console.log("Waiting for content to load...");
-              }
+                  
+                  addHelpButton(); 
+              } 
           }
       }
   });
@@ -97,39 +96,22 @@ function isProblemsPage() {
 
   // Function to extract problem details
   function extractProblemDetails() {
-      const problemUrl = window.location.href;
-      const problemId = extractId(problemUrl);
-      const problemTitle = document.getElementsByClassName("Header_resource_heading__cpRp1")[0].textContent;
-      const problemDifficulty = document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[0].textContent;
-      const problemTimeLimit = document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[1].textContent;
-      const problemMemoryLimit = document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[2].textContent;
-      const problemScore = document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[3].textContent;
-      const problemDescription = document.getElementsByClassName("coding_desc__pltWY")[0].textContent;
-      const problemInputFormat = document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[0].textContent;
-      const problemOutputFormat = document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[1].textContent;
-      const problemConstraints = document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[2].textContent;
-      const problemNoteElement = document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[3];
-      const problemNote = problemNoteElement ? problemNoteElement.textContent || "" : "";
-            const problemInputOutput = extractInputOutput();
-      const userCode = extractUserCode();
-
-      problemDetails = {
-          problemUrl,
-          problemId,
-          problemTitle,
-          problemDifficulty,
-          problemTimeLimit,
-          problemMemoryLimit,
-          problemScore,
-          problemDescription,
-          problemInputFormat,
-          problemOutputFormat,
-          problemConstraints,
-          problemNote,
-          problemInputOutput,
-          userCode,
-      };
-
+    problemDetails = {
+      problemUrl: window.location.href,
+      problemId :extractId(window.location.href),
+      title: document.getElementsByClassName("Header_resource_heading__cpRp1")[0].textContent,
+      difficulty: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[0].textContent,
+      timeLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[1].textContent,
+      memoryLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[2].textContent,
+      score: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[3].textContent,
+      description: document.getElementsByClassName("coding_desc__pltWY")[0].textContent,
+      inputFormat: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[0].textContent,
+      outputFormat: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[1].textContent,
+      constraints: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[2].textContent,
+      note: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[3]?.textContent || "",
+      inputOutput: extractInputOutput(),
+      userCode: extractUserCode()
+    };
       console.log(problemDetails);
   }
 
@@ -160,7 +142,6 @@ function extractUserCode() {
 }
   // Construct the expression to search for
   const expression = `${problemNo}_${language}`;
-  console.log(expression)
   
   // Check if any key in localStorageData contains the expression
   for (let key in localStorageData) {
@@ -211,9 +192,9 @@ function extractId(url){
 function openChatBox() {
     let aiModal = document.getElementById("modalContainer");
     if (!aiModal) {
-      console.log("creating modal and extracting details")
       extractProblemDetails();
         aiModal = createModal();
+        displayMessages(problemDetails.problemId)
     }
 
     // Attach the close button listener here to make sure it works
@@ -221,7 +202,7 @@ function openChatBox() {
     if (closeAIBtn) {
         closeAIBtn.addEventListener("click", closeModal);
     }
-
+    
     attachEventListeners();
 }
 
@@ -273,6 +254,7 @@ function createModal() {
           <!-- Chat Display -->
           <div id="chatBox" class="bg-body-secondary p-3 rounded overflow-auto mb-3 m-2" style="height: 300px;">
             <!-- Chat messages will appear here -->
+            
           </div>
 
           <!-- User Input Section -->
@@ -297,7 +279,6 @@ function attachEventListeners() {
 }
 
 function closeModal() {
-    console.log("Modal Closed");
     const modal = document.getElementById('modalContainer');
     if (modal) {
         modal.remove();
@@ -309,6 +290,7 @@ function deleteHistory() {
     if (chatBox) {
         chatBox.innerHTML = ''; // Clear the chat history
     }
+    deleteChat(problemDetails.problemId)
 }
 
 function exportChat() {
@@ -323,24 +305,240 @@ function exportChat() {
     link.click(); // Trigger the download
 }
 
-function sendMessage() {
+async function sendMessage() {
+console.log("yes data is saved", data)
     const userMessage = document.getElementById('userMessage').value;
     const chatBox = document.getElementById('chatBox');
     if (userMessage && chatBox) {
-        // Append user's message
-        chatBox.innerHTML += `<div><b>User:</b> ${userMessage}</div>`;
+        // Append user's message to chatbox
+        chatBox.innerHTML += decorateMessage(userMessage);
 
         // Clear the input field
         document.getElementById('userMessage').value = '';
 
-        // Simulate AI response after a short delay
-        setTimeout(() => {
-            chatBox.innerHTML += `<div><b>AI:</b> This is a response.</div>`;
-            chatBox.scrollTop = chatBox.scrollHeight; // Scroll to the bottom
-        }, 500);
+        // Declare botMessage outside to use it later
+        let botMessage="";
+
+        try {
+            // Simulate AI response after a short delay or API call
+            const prompt = generatePrompt(userMessage)
+            //console.log(prompt)
+            botMessage = await callAIAPI(prompt);
+
+            // Append AI's response
+            chatBox.innerHTML += decorateMessage(botMessage);
+            chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to the latest message
+        } catch (error) {
+            botMessage = "Sorry, something went wrong!";
+            chatBox.innerHTML += decorateMessage(botMessage);
+        }
+
+        // Save the user message and AI response
+        if(botMessage!==null){
+        saveMessage(problemDetails.problemId, userMessage, () => {
+          // After user message is saved, save bot message
+          saveMessage(problemDetails.problemId, botMessage);
+        });
     }
+  }
+}
+
+function decorateMessage(message){
+  return `<div> ${message}</div>`
 }
 
 function handleFeedback() {
     alert('Feedback button clicked');
+}
+
+async function callAIAPI(prompt) {
+  try {
+    const apiKey = await getApiKey(); // Now it waits for the API key asynchronously
+    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
+    const url = `${apiUrl}?key=${apiKey}`;
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            { text: prompt }
+          ]
+        }
+      ]
+    };
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      throw new Error(`API call failed with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.candidates[0].content.parts[0].text; // Extracts the text part from the response
+    return text;
+  } catch (error) {
+    console.error("Error calling AI API:", error);
+    return null;
+  }
+}
+
+// Modified getApiKey function that returns a promise
+function getApiKey() {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get("apiKey", (result) => {
+      if (result.apiKey) {
+        resolve(result.apiKey);
+      } else {
+        alert("API key not found. Please set it in the popup.")
+        reject("API key not found. Please set it in the popup.");
+      }
+    });
+  });
+}
+
+// Save a message for a specific chat (problemId)
+function saveMessage(problemId, message, callback) {
+  try {
+    // Get existing messages for the given problemId
+    chrome.storage.local.get(problemId, (result) => {
+      let messages = result[problemId] || []; // If no messages exist, initialize as an empty array
+
+      // Add the new message to the array
+      messages.push(message);
+
+      // Save the updated messages array
+      const data = { [problemId]: messages }; 
+      chrome.storage.local.set(data, () => {
+        if (chrome.runtime.lastError) {
+          console.error(`Error saving message: ${chrome.runtime.lastError.message}`);
+        } else {
+          console.log(`Message saved successfully for problemId: ${problemId}`);
+        }
+        // Call the callback function to indicate the save is complete
+        if (callback) callback();
+      });
+    });
+  } catch (error) {
+    console.error(`Caught error while saving message: ${error.message}`);
+  }
+}
+
+// Retrieve messages for a specific chat (problemId)
+function getMessages(problemId, callback) {
+  try {
+    chrome.storage.local.get(problemId, (result) => {
+      if (chrome.runtime.lastError) {
+        console.error(`Error retrieving message: ${chrome.runtime.lastError.message}`);
+        callback(null); // Pass null to indicate failure
+      } else {
+        const messages = result[problemId] || []; // Retrieve the messages or return an empty array if not found
+        console.log(`Retrieved messages for problemId: ${problemId}`, messages);
+        callback(messages); // Pass the array of messages to the callback
+      }
+    });
+  } catch (error) {
+    console.error(`Caught error while retrieving message: ${error.message}`);
+    callback(null); // Pass null in case of an error
+  }
+}
+
+// Delete all messages for a specific chat (problemId)
+function deleteChat(problemId) {
+  try {
+    chrome.storage.local.remove(problemId, () => {
+      if (chrome.runtime.lastError) {
+        console.error(`Error deleting message: ${chrome.runtime.lastError.message}`);
+      } else {
+        console.log(`Messages for problemId: ${problemId} deleted successfully.`);
+      }
+    });
+  } catch (error) {
+    console.error(`Caught error while deleting message: ${error.message}`);
+  }
+}
+
+function generatePrompt(userMessage) {
+  return `
+    You are an assistant helping users with programming problems. Use the following context to answer the user's query accurately and concisely. 
+    Your response must stay within the scope of the provided problem unless the user is engaging in common pleasantries (e.g., saying "hello" or "thank you"). 
+    Respond warmly to pleasantries, but for unrelated questions, politely inform the user that the query is out of scope.
+
+    Context:
+      Problem Title: ${problemDetails.title}
+      Difficulty: ${problemDetails.difficulty}
+      Time Limit: ${problemDetails.timeLimit}
+      Memory Limit: ${problemDetails.memoryLimit}
+      Score: ${problemDetails.score}
+      Description: ${problemDetails.description}
+      Input Format: ${problemDetails.inputFormat}
+      Output Format: ${problemDetails.outputFormat}
+      Constraints: ${problemDetails.constraints}
+      Notes: ${problemDetails.note}
+      Example Input/Output: ${problemDetails.inputOutput}
+      User Code : ${problemDetails.userCode}
+
+    User Message: ${userMessage}
+
+    Instructions for your response:
+    - If the user's message is a general greeting (e.g., "hello", "hi") or a polite expression (e.g., "thank you"), respond warmly without repeating problem details.
+    - For problem-related questions, answer using only the relevant details from the context provided.
+    - Avoid repeating the entire problem details unless explicitly requested by the user.
+    - If the user's question is unrelated to the problem and not a pleasantry, politely inform them that the query is out of scope.
+    - Format your response as structured HTML (with paragraphs, and lists as needed).
+    - Stay professional, concise, and friendly.
+  `;
+}
+
+window.addEventListener("xhrDataFetched", (event) => {
+  data = event.detail;
+  console.log("Received data in content.js:", data);
+  // Process or send this data to your extension background script
+});
+
+function injectScript() {
+  const script = document.createElement("script");
+  script.src = chrome.runtime.getURL("inject.js");
+  document.documentElement.insertAdjacentElement("afterbegin", script);
+  script.remove(); // Clean up after injecting
+}
+
+function displayMessages(problemId) {
+  // Fetch messages based on the problemId
+  getMessages(problemId, (messages) => {
+    const chatBox = document.getElementById("chatBox");
+    
+    if (!chatBox) {
+      console.error("Chatbox element not found");
+      return;
+    }
+
+    // Clear the chatbox before appending new messages
+    chatBox.innerHTML = "";
+
+    // Iterate over the messages and decorate each one
+    messages.forEach((message, index) => {
+      const decoratedMessage = decorateMessage(message);
+
+      // Add the message to the chatbox. Assuming message is either from the user or the bot
+      const messageElement = document.createElement("div");
+      messageElement.innerHTML = decoratedMessage;
+
+      // Add specific classes or identifiers to differentiate user and bot messages
+      if (index % 2 === 0) {
+        messageElement.classList.add("user-message"); // User messages at even indices
+      } else {
+        messageElement.classList.add("bot-message"); // Bot messages at odd indices
+      }
+
+      chatBox.appendChild(messageElement);
+    });
+
+    // Optionally scroll to the bottom of the chatbox after adding new messages
+    chatBox.scrollTop = chatBox.scrollHeight;
+  });
 }

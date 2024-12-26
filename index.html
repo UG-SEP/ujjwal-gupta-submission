@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>API Key Configuration</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 10px;
+      width: 250px;
+    }
+    #edit-section {
+      display: none;
+    }
+    button {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="setup-section">
+    <h3>Enter API Key</h3>
+    <input type="text" id="apiKeyInput" placeholder="Enter API Key">
+    <button id="saveApiKeyButton">Save API Key</button>
+  </div>
+  <div id="edit-section">
+    <h3>API Key</h3>
+    <p id="currentApiKey"></p>
+    <button id="editApiKeyButton">Edit API Key</button>
+  </div>
+  <script src="scripts.js"></script>
+</body>
+</html>
