@@ -2,20 +2,16 @@
 
 let lastUrl = ""
 let problemDetails = {}
-let data = ""
+let XhrRequestData = ""
 
 function areRequiredElementsLoaded() {
   const problemTitle = document.getElementsByClassName("Header_resource_heading__cpRp1")[0]?.textContent.trim();
   const problemDescription = document.getElementsByClassName("coding_desc__pltWY")[0]?.textContent.trim();
-  const problemInputFormat = document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[0]?.textContent.trim();
-  const problemOutputFormat = document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[1]?.textContent.trim();
 
   // Return true if all the required elements are found and their content is non-empty
   return (
     problemTitle && 
-    problemDescription && 
-    problemInputFormat && 
-    problemOutputFormat
+    problemDescription
   );
 }
 
@@ -96,24 +92,66 @@ function isProblemsPage() {
 
   // Function to extract problem details
   function extractProblemDetails() {
-    problemDetails = {
-      problemUrl: window.location.href,
-      problemId :extractId(window.location.href),
-      title: document.getElementsByClassName("Header_resource_heading__cpRp1")[0].textContent,
-      difficulty: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[0].textContent,
-      timeLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[1].textContent,
-      memoryLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[2].textContent,
-      score: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[3].textContent,
-      description: document.getElementsByClassName("coding_desc__pltWY")[0].textContent,
-      inputFormat: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[0].textContent,
-      outputFormat: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[1].textContent,
-      constraints: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[2].textContent,
-      note: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[3]?.textContent || "",
-      inputOutput: extractInputOutput(),
-      userCode: extractUserCode()
+    // Parse the `response` field from `xhrRequestData` (assuming it's a JSON string)
+    let parsedData;
+    try {
+        parsedData = JSON.parse(XhrRequestData.response)?.data || {};
+    } catch (error) {
+        console.error("Failed to parse xhrRequestData.response:", error);
+        parsedData = {};
+    }
+    // Extract data from `xhrRequestData` (primary source)
+    const primaryDetails = {
+        title: parsedData.title || "",
+        description: parsedData.body || "",
+        constraints: parsedData.constraints || "",
+        editorialCode: parsedData.editorial_code || [],
+        hints: parsedData.hints || {},
+        id: (parsedData.id).toString() || "",
+        inputFormat: parsedData.input_format || "",
+        memoryLimit: parsedData.memory_limit_mb || "",
+        note: parsedData.note || "",
+        outputFormat: parsedData.output_format || "",
+        samples: parsedData.samples || [],
+        timeLimit: parsedData.time_limit_sec || ""
     };
-      console.log(problemDetails);
-  }
+    // Extract data from fallback DOM-based approach if primary details are missing
+    const fallbackDetails = {
+        id :extractProblemNumber(window.location.pathname),
+        title: document.getElementsByClassName("Header_resource_heading__cpRp1")[0]?.textContent || "",
+        difficulty: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[0]?.textContent || "",
+        timeLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[1]?.textContent || "",
+        memoryLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[2]?.textContent || "",
+        score: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[3]?.textContent || "",
+        description: document.getElementsByClassName("coding_desc__pltWY")[0]?.textContent || "",
+        inputFormat: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[0]?.textContent || "",
+        outputFormat: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[1]?.textContent || "",
+        constraints: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[2]?.textContent || "",
+        note: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[3]?.textContent || "",
+        inputOutput: extractInputOutput() || [],
+        userCode: extractUserCode() || "",
+    };
+    // Combine primary and fallback details (fallback only used for missing fields)
+    problemDetails = {
+        title: primaryDetails.title || fallbackDetails.title,
+        description: primaryDetails.description || fallbackDetails.description,
+        constraints: primaryDetails.constraints || fallbackDetails.constraints,
+        editorialCode: primaryDetails.editorialCode || [],
+        hints: primaryDetails.hints || {},
+        problemId: primaryDetails.id || fallbackDetails.id,
+        inputFormat: primaryDetails.inputFormat || fallbackDetails.inputFormat,
+        memoryLimit: primaryDetails.memoryLimit || fallbackDetails.memoryLimit,
+        note: primaryDetails.note || fallbackDetails.note,
+        outputFormat: primaryDetails.outputFormat || fallbackDetails.outputFormat,
+        samples: primaryDetails.samples || fallbackDetails.inputOutput,
+        timeLimit: primaryDetails.timeLimit || fallbackDetails.timeLimit,
+        userCode: fallbackDetails.userCode || "",
+        score : fallbackDetails.score || "",
+        difficulty: fallbackDetails.difficulty || "",
+    };
+
+    console.log(problemDetails);
+}
 
   function extractProblemNumber(url) {
     const parts = url.split('/'); // Split the URL by '/'
@@ -180,7 +218,9 @@ for (let i = 3; i < elements.length; i += 2) {
   inputOutputPairs.push({ input, output });
   }  
 }
-return inputOutputPairs
+
+const jsonString = JSON.stringify(inputOutputPairs);
+return jsonString.replace(/\\\\n/g, "\\n"); 
 
 }
 function extractId(url){
@@ -252,15 +292,20 @@ function createModal() {
           </div>
 
           <!-- Chat Display -->
-          <div id="chatBox" class="bg-body-secondary p-3 rounded overflow-auto mb-3 m-2" style="height: 300px;">
+          <div id="chatBox" class="bg-body-secondary p-3 rounded overflow-auto mb-3 m-2" style="height: 500px;">
             <!-- Chat messages will appear here -->
             
           </div>
 
           <!-- User Input Section -->
-          <div class="d-flex align-items-center m-2 flex-wrap" style="gap: 10px;">
-            <textarea id="userMessage" class="form-control bg-body-secondary" placeholder="Enter your message..." rows="2" style="flex: 1;"></textarea>
-            <button type="button" class="ant-btn css-e6z5vk ant-btn-submit Button_gradient_light_button__ZDAR_" id="sendMsg"><span>Send</span></button>
+          <div class="d-flex align-items-center m-2 flex-wrap bg-body-secondary" style="gap: 10px; border-radius:5px">
+            <textarea id="userMessage" class="form-control bg-body-secondary" placeholder="Ask your doubt" rows="2" style="flex: 1;resize:none;"></textarea>
+            <button type="button" class="ant-btn css-e6z5vk ant-btn-submit" id="sendMsg" style="margin-right:5px; border:0px;"><span>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" height="24" width="24">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M21 2L11 12M21 2L15 21l-4-9-9-4 12-4L21 2z"></path>
+</svg>
+
+            </span></button>
           </div>
         </div>
       </section>
@@ -306,12 +351,12 @@ function exportChat() {
 }
 
 async function sendMessage() {
-console.log("yes data is saved", data)
+console.log("yes data is saved", XhrRequestData)
     const userMessage = document.getElementById('userMessage').value;
     const chatBox = document.getElementById('chatBox');
     if (userMessage && chatBox) {
         // Append user's message to chatbox
-        chatBox.innerHTML += decorateMessage(userMessage);
+        chatBox.innerHTML += decorateMessage(userMessage,true);
 
         // Clear the input field
         document.getElementById('userMessage').value = '';
@@ -343,9 +388,39 @@ console.log("yes data is saved", data)
   }
 }
 
-function decorateMessage(message){
-  return `<div> ${message}</div>`
+function decorateMessage(message, isUser) {
+  return `<div style="
+    display: flex;
+    justify-content: ${isUser ? 'flex-end' : 'flex-start'};
+    margin-bottom: 15px;
+  ">
+    <div style="
+      padding: 10px;
+      border-radius: 15px;
+      max-width: 70%;
+      font-family: 'Roboto', Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      background-color: ${isUser ? '#cce8ff' : '#ffffff'};
+      color: ${isUser ? '#003366' : '#333333'};
+      text-align: left;
+    ">
+      ${message}
+      <div style="
+        font-size: 12px; 
+        color: #888888; 
+        margin-top: 5px; 
+        text-align: right;
+      ">
+        ${new Date().toLocaleTimeString()}
+      </div>
+    </div>
+  </div>`;
 }
+
+
+
 
 function handleFeedback() {
     alert('Feedback button clicked');
@@ -379,7 +454,9 @@ async function callAIAPI(prompt) {
     }
 
     const data = await response.json();
-    const text = data.candidates[0].content.parts[0].text; // Extracts the text part from the response
+    let text = data.candidates[0].content.parts[0].text; // Extracts the text part from the response
+    text = text.replace(/^```.*\n|\n```$/g, '').trim();
+    text = text.replace(/```/g, '').trim();
     return text;
   } catch (error) {
     console.error("Error calling AI API:", error);
@@ -469,7 +546,7 @@ function generatePrompt(userMessage) {
     Respond warmly to pleasantries, but for unrelated questions, politely inform the user that the query is out of scope.
 
     Context:
-      Problem Title: ${problemDetails.title}
+       Problem Title: ${problemDetails.title}
       Difficulty: ${problemDetails.difficulty}
       Time Limit: ${problemDetails.timeLimit}
       Memory Limit: ${problemDetails.memoryLimit}
@@ -479,8 +556,10 @@ function generatePrompt(userMessage) {
       Output Format: ${problemDetails.outputFormat}
       Constraints: ${problemDetails.constraints}
       Notes: ${problemDetails.note}
-      Example Input/Output: ${problemDetails.inputOutput}
+      Example Input/Output: ${JSON.stringify(problemDetails.samples)}
       User Code : ${problemDetails.userCode}
+      "Hints" : ${JSON.stringify(problemDetails.hints)}
+      "Editorial Code" : ${JSON.stringify(problemDetails.editorialCode)}
 
     User Message: ${userMessage}
 
@@ -495,8 +574,8 @@ function generatePrompt(userMessage) {
 }
 
 window.addEventListener("xhrDataFetched", (event) => {
-  data = event.detail;
-  console.log("Received data in content.js:", data);
+  XhrRequestData = event.detail;
+  console.log("Received data in content.js:", XhrRequestData);
   // Process or send this data to your extension background script
 });
 
@@ -522,8 +601,11 @@ function displayMessages(problemId) {
 
     // Iterate over the messages and decorate each one
     messages.forEach((message, index) => {
-      const decoratedMessage = decorateMessage(message);
-
+      let decoratedMessage = ""
+      if(index%2===0)
+        decoratedMessage = decorateMessage(message,true);
+    else 
+    decoratedMessage = decorateMessage(message,false);
       // Add the message to the chatbox. Assuming message is either from the user or the bot
       const messageElement = document.createElement("div");
       messageElement.innerHTML = decoratedMessage;
