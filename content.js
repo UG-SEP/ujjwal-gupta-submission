@@ -158,7 +158,6 @@ function isProblemsPage() {
         difficulty: fallbackDetails.difficulty || "",
     };
 
-    console.log(problemDetails);
 }
 
   function extractProblemNumber(url) {
@@ -188,7 +187,6 @@ function extractUserCode() {
 }
   // Construct the expression to search for
   const expression = createExpression(problemNo,language);
-  console.log(expression)
   // Check if any key in localStorageData contains the expression
   for (let key in localStorageData) {
     if (
@@ -355,14 +353,13 @@ function exportChat() {
   
   let formattedMessages = [];
   let totalMessages = Math.max(userMessages.length, botMessages.length);
-  console.log(userMessages)
   // Alternate user and bot messages
   for (let i = 0; i < totalMessages; i++) {
       if (i < userMessages.length) {
-          formattedMessages.push(`User: ${userMessages[i].innerText}`);
+          formattedMessages.push(`You: ${userMessages[i].innerText}`);
       }
       if (i < botMessages.length) {
-          formattedMessages.push(`Bot: ${botMessages[i].innerText}`);
+          formattedMessages.push(`AI: ${botMessages[i].innerText}`);
       }
   }
 
@@ -379,10 +376,12 @@ function exportChat() {
 
 function disableSendButton(){
   let sendButton = document.getElementById("sendMsg");
+  if(sendButton)
   sendButton.disabled = true
 }
 function enableSendButton(){
   let sendButton = document.getElementById("sendMsg");
+  if(sendButton)
   sendButton.disabled = false
 }
 async function sendMessage() {
@@ -405,6 +404,7 @@ async function sendMessage() {
           try {
               // Generate a prompt and call the AI API
               const prompt = generatePrompt(userMessage);
+              console.log(prompt)
               botMessage = await callAIAPI(prompt, apiKey);
 
               // Check if botMessage is valid
@@ -464,7 +464,7 @@ function decorateMessage(message, isUser) {
 
 
 function handleFeedback() {
-    alert('Feedback button clicked');
+    prompt('Give your feedback');
 }
 
 async function callAIAPI(prompt,apiKey) {
@@ -536,9 +536,7 @@ function saveMessage(problemId, message, callback) {
       chrome.storage.local.set(data, () => {
         if (chrome.runtime.lastError) {
           console.error(`Error saving message: ${chrome.runtime.lastError.message}`);
-        } else {
-          console.log(`Message saved successfully for problemId: ${problemId}`);
-        }
+        } 
         // Call the callback function to indicate the save is complete
         if (callback) callback();
       });
@@ -557,7 +555,6 @@ function getMessages(problemId, callback) {
         callback(null); // Pass null to indicate failure
       } else {
         const messages = result[problemId] || []; // Retrieve the messages or return an empty array if not found
-        console.log(`Retrieved messages for problemId: ${problemId}`, messages);
         callback(messages); // Pass the array of messages to the callback
       }
     });
@@ -573,9 +570,7 @@ function deleteChat(problemId) {
     chrome.storage.local.remove(problemId, () => {
       if (chrome.runtime.lastError) {
         console.error(`Error deleting message: ${chrome.runtime.lastError.message}`);
-      } else {
-        console.log(`Messages for problemId: ${problemId} deleted successfully.`);
-      }
+      } 
     });
   } catch (error) {
     console.error(`Caught error while deleting message: ${error.message}`);
@@ -618,7 +613,6 @@ function generatePrompt(userMessage) {
 
 window.addEventListener("xhrDataFetched", (event) => {
   XhrRequestData = event.detail;
-  //console.log("Received data in content.js:", XhrRequestData);
   // Process or send this data to your extension background script
 });
 
