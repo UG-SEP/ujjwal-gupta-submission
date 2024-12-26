@@ -23,15 +23,51 @@ const observer = new MutationObserver((mutations) => {
               injectScript();
               if (areRequiredElementsLoaded()) {
                   cleanElements();
-                  
-                  addHelpButton(); 
+                  createElement(); 
               } 
           }
       }
   });
 });
 
+function createElement(){
+  const doubtButton = document.getElementsByClassName("coding_ask_doubt_button__FjwXJ")[0];
 
+  // Button container element
+  const buttonContainer = createButtonContainer()
+  doubtButton.parentNode.insertBefore(buttonContainer, doubtButton);
+  buttonContainer.appendChild(doubtButton);
+
+  // Help button element
+  const helpButton = createHelpButton()
+  buttonContainer.appendChild(helpButton);
+
+  // Added a event listener for the help button
+  helpButton.addEventListener("click", openChatBox);
+}
+
+function createButtonContainer(){
+  const buttonContainer = document.createElement("div");
+      buttonContainer.id = "button-container";
+      buttonContainer.style.display = "flex";
+      buttonContainer.style.justifyContent = "flex-end";
+      buttonContainer.style.gap = "10px";
+      return buttonContainer
+}
+
+function createHelpButton(){
+  const helpButton = document.createElement("button");
+      helpButton.id = "help-button";
+      helpButton.className = "ant-btn css-19gw05y ant-btn-default Button_gradient_light_button__ZDAR_ coding_ask_doubt_button__FjwXJ gap-1 py-2 px-3 overflow-hidden";
+      helpButton.style.height = "fit-content";
+      helpButton.innerHTML = `
+          <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h4m5 5l-3-3H6a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2h-3l-3 3z"></path>
+          </svg>
+          <span class="coding_ask_doubt_gradient_text__FX_hZ">AI Help</span>
+      `;
+    return helpButton
+}
 function cleanElements() {
   const buttonContainer = document.getElementById("help-button");
   if (buttonContainer) buttonContainer.remove();
@@ -39,6 +75,7 @@ function cleanElements() {
   const modalContainer = document.getElementById("modal-container");
   if (modalContainer) modalContainer.remove();
   problemDetails = {}
+
 }
 
 // Initialize MutationObserver
@@ -62,35 +99,6 @@ function isProblemsPage() {
   return pathParts.length >= 3 && pathParts[1] === "problems" && pathParts[2]; // Ensure "/problems/some-id"
 }
 
-  // Function to add the Help Button
-  function addHelpButton() {
-    const doubtButton = document.getElementsByClassName("coding_ask_doubt_button__FjwXJ")[0]
-      const buttonContainer = document.createElement("div");
-      buttonContainer.id = "button-container";
-      buttonContainer.style.display = "flex";
-      buttonContainer.style.justifyContent = "flex-end";
-      buttonContainer.style.gap = "10px";
-
-      doubtButton.parentNode.insertBefore(buttonContainer, doubtButton);
-      buttonContainer.appendChild(doubtButton);
-
-      const helpButton = document.createElement("button");
-      helpButton.id = "help-button";
-      helpButton.className = "ant-btn css-19gw05y ant-btn-default Button_gradient_light_button__ZDAR_ coding_ask_doubt_button__FjwXJ gap-1 py-2 px-3 overflow-hidden";
-      helpButton.style.height = "fit-content";
-      helpButton.innerHTML = `
-          <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h4m5 5l-3-3H6a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2h-3l-3 3z"></path>
-          </svg>
-          <span class="coding_ask_doubt_gradient_text__FX_hZ">AI Help</span>
-      `;
-
-      buttonContainer.appendChild(helpButton);
-
-      helpButton.addEventListener("click", openChatBox);
-  }
-
-  // Function to extract problem details
   function extractProblemDetails() {
     // Parse the `response` field from `xhrRequestData` (assuming it's a JSON string)
     let parsedData;
@@ -179,16 +187,25 @@ function extractUserCode() {
     language = language.slice(1, -1); // Remove the first and last character (quotes)
 }
   // Construct the expression to search for
-  const expression = `${problemNo}_${language}`;
-  
+  const expression = createExpression(problemNo,language);
+  console.log(expression)
   // Check if any key in localStorageData contains the expression
   for (let key in localStorageData) {
-      if (localStorageData.hasOwnProperty(key) && key.includes(expression)) {
-          return localStorageData[key]; // Return the value of the first key that matches
-      }
-  }
+    if (
+        localStorageData.hasOwnProperty(key) && 
+        key.includes(expression) &&
+        key.endsWith(expression) // Ensures the key ends with the exact expression
+    ) {
+        return localStorageData[key]; // Return the value of the first key that matches exactly
+    }
+}
+
   
   return ''; // If no match is found, return an empty string
+}
+
+function createExpression(problemNo,language){
+  return `${problemNo}_${language}`
 }
 
 
@@ -200,11 +217,6 @@ function extractLocalStorage() {
   }
   return localStorageData;
 }
-
-
-
-
-
 
 function extractInputOutput(){
 
@@ -219,29 +231,28 @@ for (let i = 3; i < elements.length; i += 2) {
   }  
 }
 
-const jsonString = JSON.stringify(inputOutputPairs);
+let jsonString = formatToJson(inputOutputPairs)
 return jsonString.replace(/\\\\n/g, "\\n"); 
 
 }
-function extractId(url){
-    const start = url.indexOf("problems/") + "problems/".length;
-    const end = url.indexOf("?",start);
-    return end === -1 ? url.substring(start): url.substring(start,end);
+function formatToJson(obj){
+  return JSON.stringify(obj)
 }
+// function extractId(url){
+//     const start = url.indexOf("problems/") + "problems/".length;
+//     const end = url.indexOf("?",start);
+//     return end === -1 ? url.substring(start): url.substring(start,end);
+// }
 
 function openChatBox() {
     let aiModal = document.getElementById("modalContainer");
-    if (!aiModal) {
       extractProblemDetails();
-        aiModal = createModal();
-        displayMessages(problemDetails.problemId)
-    }
+      aiModal = createModal();
+      displayMessages(problemDetails.problemId)
 
     // Attach the close button listener here to make sure it works
     const closeAIBtn = aiModal.querySelector("#closeAIBtn");
-    if (closeAIBtn) {
-        closeAIBtn.addEventListener("click", closeModal);
-    }
+    closeAIBtn.addEventListener("click", closeModal);
     
     attachEventListeners();
 }
@@ -299,7 +310,7 @@ function createModal() {
 
           <!-- User Input Section -->
           <div class="d-flex align-items-center m-2 flex-wrap bg-body-secondary" style="gap: 10px; border-radius:5px">
-            <textarea id="userMessage" class="form-control bg-body-secondary" placeholder="Ask your doubt" rows="2" style="flex: 1;resize:none;"></textarea>
+            <textarea id="userMessage" class="form-control bg-body-secondary" placeholder="Ask your doubt" rows="2" style="flex: 1;resize:none;" required></textarea>
             <button type="button" class="ant-btn css-e6z5vk ant-btn-submit" id="sendMsg" style="margin-right:5px; border:0px;"><span>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" height="24" width="24">
   <path stroke-linecap="round" stroke-linejoin="round" d="M21 2L11 12M21 2L15 21l-4-9-9-4 12-4L21 2z"></path>
@@ -325,68 +336,104 @@ function attachEventListeners() {
 
 function closeModal() {
     const modal = document.getElementById('modalContainer');
-    if (modal) {
-        modal.remove();
-    }
+    modal.remove();
 }
 
 function deleteHistory() {
     const chatBox = document.getElementById('chatBox');
-    if (chatBox) {
-        chatBox.innerHTML = ''; // Clear the chat history
-    }
+    const textArea = document.getElementById('userMessage')
+    textArea.innerHTML = '';
+    chatBox.innerHTML = ''; 
     deleteChat(problemDetails.problemId)
+
 }
 
 function exportChat() {
-    const chatBox = document.getElementById('chatBox');
-    const chatMessages = chatBox.innerText;
+  const chatBox = document.getElementById('chatBox');
+  const userMessages = chatBox.getElementsByClassName('user-message');
+  const botMessages = chatBox.getElementsByClassName('bot-message');
+  
+  let formattedMessages = [];
+  let totalMessages = Math.max(userMessages.length, botMessages.length);
+  console.log(userMessages)
+  // Alternate user and bot messages
+  for (let i = 0; i < totalMessages; i++) {
+      if (i < userMessages.length) {
+          formattedMessages.push(`User: ${userMessages[i].innerText}`);
+      }
+      if (i < botMessages.length) {
+          formattedMessages.push(`Bot: ${botMessages[i].innerText}`);
+      }
+  }
 
-    // Create a Blob object containing the chat history
-    const blob = new Blob([chatMessages], { type: 'text/plain' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'chat-history.txt';
-    link.click(); // Trigger the download
+  // Combine all formatted messages into a single string
+  const chatHistory = formattedMessages.join('\n\n');
+  
+  // Create a Blob object containing the chat history
+  const blob = new Blob([chatHistory], { type: 'text/plain' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `chat-history-for-${problemDetails.title}.txt`; // Assuming `problemDetails.title` is defined
+  link.click(); // Trigger the download
 }
 
+function disableSendButton(){
+  let sendButton = document.getElementById("sendMsg");
+  sendButton.disabled = true
+}
+function enableSendButton(){
+  let sendButton = document.getElementById("sendMsg");
+  sendButton.disabled = false
+}
 async function sendMessage() {
-console.log("yes data is saved", XhrRequestData)
-    const userMessage = document.getElementById('userMessage').value;
-    const chatBox = document.getElementById('chatBox');
-    if (userMessage && chatBox) {
-        // Append user's message to chatbox
-        chatBox.innerHTML += decorateMessage(userMessage,true);
+  const userMessage = document.getElementById('userMessage').value.trim(); // Trim unnecessary spaces
+  const chatBox = document.getElementById('chatBox');
+  const apiKey = await getApiKey();
 
-        // Clear the input field
-        document.getElementById('userMessage').value = '';
+  if (apiKey) {
+      // Append user's message to chatbox
+      if (userMessage) {
+          chatBox.innerHTML += decorateMessage(userMessage, true);
 
-        // Declare botMessage outside to use it later
-        let botMessage="";
+          // Clear the input field
+          document.getElementById('userMessage').value = '';
+          disableSendButton();
 
-        try {
-            // Simulate AI response after a short delay or API call
-            const prompt = generatePrompt(userMessage)
-            //console.log(prompt)
-            botMessage = await callAIAPI(prompt);
+          // Declare botMessage outside to use it later
+          let botMessage = "";
 
-            // Append AI's response
-            chatBox.innerHTML += decorateMessage(botMessage);
-            chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to the latest message
-        } catch (error) {
-            botMessage = "Sorry, something went wrong!";
-            chatBox.innerHTML += decorateMessage(botMessage);
-        }
+          try {
+              // Generate a prompt and call the AI API
+              const prompt = generatePrompt(userMessage);
+              botMessage = await callAIAPI(prompt, apiKey);
 
-        // Save the user message and AI response
-        if(botMessage!==null){
-        saveMessage(problemDetails.problemId, userMessage, () => {
-          // After user message is saved, save bot message
-          saveMessage(problemDetails.problemId, botMessage);
-        });
-    }
+              // Check if botMessage is valid
+              if (botMessage) {
+                  // Append AI's response
+                  chatBox.innerHTML += decorateMessage(botMessage);
+                  chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to the latest message
+
+                  // Save the user message and AI response
+                  saveMessage(problemDetails.problemId, userMessage, () => {
+                      saveMessage(problemDetails.problemId, botMessage);
+                  });
+              } else {
+                  // If botMessage is null or invalid, alert the user
+                  alert("Invalid API key or response. Please check your API key.");
+              }
+          } catch (error) {
+              botMessage = "Sorry, something went wrong!";
+              chatBox.innerHTML += decorateMessage(botMessage);
+              console.error("Error in AI API call:", error);
+          }
+
+          enableSendButton();
+      }
+  } else {
+      alert("No API key found. Please provide a valid API key.");
   }
 }
+
 
 function decorateMessage(message, isUser) {
   return `<div style="
@@ -405,16 +452,10 @@ function decorateMessage(message, isUser) {
       background-color: ${isUser ? '#cce8ff' : '#ffffff'};
       color: ${isUser ? '#003366' : '#333333'};
       text-align: left;
-    ">
+    "
+      class = ${isUser? 'user-message' : 'bot-message'}
+    >
       ${message}
-      <div style="
-        font-size: 12px; 
-        color: #888888; 
-        margin-top: 5px; 
-        text-align: right;
-      ">
-        ${new Date().toLocaleTimeString()}
-      </div>
     </div>
   </div>`;
 }
@@ -426,9 +467,8 @@ function handleFeedback() {
     alert('Feedback button clicked');
 }
 
-async function callAIAPI(prompt) {
+async function callAIAPI(prompt,apiKey) {
   try {
-    const apiKey = await getApiKey(); // Now it waits for the API key asynchronously
     const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
     const url = `${apiUrl}?key=${apiKey}`;
     const requestBody = {
@@ -455,15 +495,18 @@ async function callAIAPI(prompt) {
 
     const data = await response.json();
     let text = data.candidates[0].content.parts[0].text; // Extracts the text part from the response
-    text = text.replace(/^```.*\n|\n```$/g, '').trim();
-    text = text.replace(/```/g, '').trim();
-    return text;
+    cleanedText = cleanAIResponse(text);
+    return cleanedText;
   } catch (error) {
     console.error("Error calling AI API:", error);
     return null;
   }
 }
 
+function cleanAIResponse(text){
+  text = text.replace(/^```.*\n|\n```$/g, '').trim();
+  return text.replace(/```/g, '').trim();
+}
 // Modified getApiKey function that returns a promise
 function getApiKey() {
   return new Promise((resolve, reject) => {
@@ -538,7 +581,7 @@ function deleteChat(problemId) {
     console.error(`Caught error while deleting message: ${error.message}`);
   }
 }
-
+// TODO: generate prompt
 function generatePrompt(userMessage) {
   return `
     You are an assistant helping users with programming problems. Use the following context to answer the user's query accurately and concisely. 
@@ -546,7 +589,7 @@ function generatePrompt(userMessage) {
     Respond warmly to pleasantries, but for unrelated questions, politely inform the user that the query is out of scope.
 
     Context:
-       Problem Title: ${problemDetails.title}
+      Problem Title: ${problemDetails.title}
       Difficulty: ${problemDetails.difficulty}
       Time Limit: ${problemDetails.timeLimit}
       Memory Limit: ${problemDetails.memoryLimit}
@@ -558,9 +601,9 @@ function generatePrompt(userMessage) {
       Notes: ${problemDetails.note}
       Example Input/Output: ${JSON.stringify(problemDetails.samples)}
       User Code : ${problemDetails.userCode}
-      "Hints" : ${JSON.stringify(problemDetails.hints)}
-      "Editorial Code" : ${JSON.stringify(problemDetails.editorialCode)}
-
+      Hints : ${JSON.stringify(problemDetails.hints)}
+      Editorial Code : ${JSON.stringify(problemDetails.editorialCode)}
+      Last Conversation Context : ${getLastContext(5)}
     User Message: ${userMessage}
 
     Instructions for your response:
@@ -575,7 +618,7 @@ function generatePrompt(userMessage) {
 
 window.addEventListener("xhrDataFetched", (event) => {
   XhrRequestData = event.detail;
-  console.log("Received data in content.js:", XhrRequestData);
+  //console.log("Received data in content.js:", XhrRequestData);
   // Process or send this data to your extension background script
 });
 
@@ -590,11 +633,6 @@ function displayMessages(problemId) {
   // Fetch messages based on the problemId
   getMessages(problemId, (messages) => {
     const chatBox = document.getElementById("chatBox");
-    
-    if (!chatBox) {
-      console.error("Chatbox element not found");
-      return;
-    }
 
     // Clear the chatbox before appending new messages
     chatBox.innerHTML = "";
@@ -610,12 +648,7 @@ function displayMessages(problemId) {
       const messageElement = document.createElement("div");
       messageElement.innerHTML = decoratedMessage;
 
-      // Add specific classes or identifiers to differentiate user and bot messages
-      if (index % 2 === 0) {
-        messageElement.classList.add("user-message"); // User messages at even indices
-      } else {
-        messageElement.classList.add("bot-message"); // Bot messages at odd indices
-      }
+      
 
       chatBox.appendChild(messageElement);
     });
@@ -623,4 +656,22 @@ function displayMessages(problemId) {
     // Optionally scroll to the bottom of the chatbox after adding new messages
     chatBox.scrollTop = chatBox.scrollHeight;
   });
+}
+
+
+function getLastContext(size) {
+  const chatBox = document.getElementById('chatBox');
+  const userMessages = Array.from(chatBox.getElementsByClassName('user-message'));
+  const botMessages = Array.from(chatBox.getElementsByClassName('bot-message'));
+
+  const context = [];
+  const messagePairs = Math.min(size, userMessages.length, botMessages.length);
+
+  for (let i = 0; i < messagePairs; i++) {
+      const userMessage = userMessages[userMessages.length - messagePairs + i]?.innerText || '';
+      const botReply = botMessages[botMessages.length - messagePairs + i]?.innerText || '';
+      context.push(`User Message: ${userMessage}\nAI Reply: ${botReply}`);
+  }
+
+  return context.join('\n\n'); // Join each message pair with spacing for better readability
 }
