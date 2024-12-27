@@ -3,6 +3,10 @@
 let lastUrl = ""
 let problemDetails = {}
 let XhrRequestData = ""
+const recognition = new webkitSpeechRecognition() || new SpeechRecognition();
+recognition.lang = 'en-US'; // Set the language
+recognition.continuous = false; // Stop recognition after one result
+recognition.interimResults = false; // Get final results only
 
 function areRequiredElementsLoaded() {
   const problemTitle = document.getElementsByClassName("Header_resource_heading__cpRp1")[0]?.textContent.trim();
@@ -181,7 +185,7 @@ function extractUserCode() {
   
   // Extract the problem number from the current URL
   const problemNo = extractProblemNumber(window.location.pathname); // Use `window.location.pathname` to get the current URL
-  let language = localStorageData['editor-language']; // Assuming the language is stored with the key 'editor-language'
+  let language = localStorageData['editor-language'] || "C++14"; // Assuming the language is stored with the key 'editor-language'
   if (language.startsWith('"') && language.endsWith('"')) {
     language = language.slice(1, -1); // Remove the first and last character (quotes)
 }
@@ -253,6 +257,7 @@ function openChatBox() {
     closeAIBtn.addEventListener("click", closeModal);
     
     attachEventListeners();
+    
 }
 
 function createModal() {
@@ -284,12 +289,6 @@ function createModal() {
               </svg>
               <span class="coding_ask_doubt_gradient_text__FX_hZ">Delete History</span>
             </button>
-            <button id="feedback-button" class="ant-btn css-19gw05y ant-btn-default Button_gradient_light_button__ZDAR_ coding_ask_doubt_button__FjwXJ gap-1 py-2 px-3 overflow-hidden" style="height: fit-content;">
-              <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M10 14h4M12 10h0m-5 9l-3-3H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3l-3 3H7z" />
-              </svg>
-              <span class="coding_ask_doubt_gradient_text__FX_hZ">Feedback</span>
-            </button>
             <button id="export-chat-button" class="ant-btn css-19gw05y ant-btn-default Button_gradient_light_button__ZDAR_ coding_ask_doubt_button__FjwXJ gap-1 py-2 px-3 overflow-hidden" style="height: fit-content;">
               <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 5v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z" />
@@ -309,6 +308,16 @@ function createModal() {
           <!-- User Input Section -->
           <div class="d-flex align-items-center m-2 flex-wrap bg-body-secondary" style="gap: 10px; border-radius:5px">
             <textarea id="userMessage" class="form-control bg-body-secondary" placeholder="Ask your doubt" rows="2" style="flex: 1;resize:none;" required></textarea>
+            <button type="button" class="ant-btn css-e6z5vk ant-btn-submit" id="voiceType" style="padding:0px; border:0px;"> 
+    <span>
+       <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" height="28" width="28">
+  <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0z"/>
+  <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5"/>
+</svg>
+    </span>
+</button>
+
+
             <button type="button" class="ant-btn css-e6z5vk ant-btn-submit" id="sendMsg" style="margin-right:5px; border:0px;"><span>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" height="24" width="24">
   <path stroke-linecap="round" stroke-linejoin="round" d="M21 2L11 12M21 2L15 21l-4-9-9-4 12-4L21 2z"></path>
@@ -329,11 +338,29 @@ function attachEventListeners() {
     document.getElementById('delete-button')?.addEventListener('click', deleteHistory);
     document.getElementById('export-chat-button')?.addEventListener('click', exportChat);
     document.getElementById('sendMsg')?.addEventListener('click', sendMessage);
-    document.getElementById('feedback-button')?.addEventListener('click', handleFeedback);
+    document.getElementById('voiceType')?.addEventListener('click',startListening);
 }
+
+function startListening(){
+  recognition.start();
+}
+recognition.onresult = function(event) {
+  const transcript = event.results[0][0].transcript;
+  //console.log('You said:', transcript);
+
+  // Update the value of the textarea
+  let userMessage = document.getElementById('userMessage');
+  if (userMessage.value)
+  userMessage.value += ` ${transcript}`; // Use 'value' instead of 'innerHTML'
+  else userMessage.value = transcript
+};
+recognition.onerror = function(event) {
+  console.error('Error occurred in recognition:', event.error);
+};
 
 function closeModal() {
     const modal = document.getElementById('modalContainer');
+    window.speechSynthesis.cancel();
     modal.remove();
 }
 
@@ -392,6 +419,7 @@ async function sendMessage() {
   if (apiKey) {
       // Append user's message to chatbox
       if (userMessage) {
+        window.speechSynthesis.cancel();
           chatBox.innerHTML += decorateMessage(userMessage, true);
 
           // Clear the input field
@@ -404,7 +432,6 @@ async function sendMessage() {
           try {
               // Generate a prompt and call the AI API
               const prompt = generatePrompt(userMessage);
-              console.log(prompt)
               botMessage = await callAIAPI(prompt, apiKey);
 
               // Check if botMessage is valid
@@ -453,19 +480,61 @@ function decorateMessage(message, isUser) {
       color: ${isUser ? '#003366' : '#333333'};
       text-align: left;
     "
-      class = ${isUser? 'user-message' : 'bot-message'}
+      class="${isUser ? 'user-message' : 'bot-message'}"
     >
       ${message}
+      ${!isUser ? `
+      <button style="
+        margin-left: 10px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        color: #007bff;
+        font-size: 16px;
+        padding: 0;
+      " 
+        class="play-sound-button">
+        <!-- Speaker icon SVG -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-volume-up" viewBox="0 0 16 16">
+          <path d="M11.536 14.01A8.47 8.47 0 0 0 14.026 8a8.47 8.47 0 0 0-2.49-6.01l-.708.707A7.48 7.48 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303z"/>
+          <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.48 5.48 0 0 1 11.025 8a5.48 5.48 0 0 1-1.61 3.89z"/>
+          <path d="M10.025 8a4.5 4.5 0 0 1-1.318 3.182L8 10.475A3.5 3.5 0 0 0 9.025 8c0-.966-.392-1.841-1.025-2.475l.707-.707A4.5 4.5 0 0 1 10.025 8M7 4a.5.5 0 0 0-.812-.39L3.825 5.5H1.5A.5.5 0 0 0 1 6v4a.5.5 0 0 0 .5.5h2.325l2.363 1.89A.5.5 0 0 0 7 12zM4.312 6.39 6 5.04v5.92L4.312 9.61A.5.5 0 0 0 4 9.5H2v-3h2a.5.5 0 0 0 .312-.11"/>
+        </svg>
+      </button>
+      ` : ''}
     </div>
   </div>`;
 }
+function playSound(message) {
+  // Stop any ongoing speech
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+  }
 
+  // Strip out HTML tags from the message
+  const cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, ""); // Remove HTML tags
 
+  const speech = new SpeechSynthesisUtterance(cleanMessage);
+  speech.lang = 'en-US'; // Adjust the language if necessary
 
-
-function handleFeedback() {
-    prompt('Give your feedback');
+  // Start speaking
+  window.speechSynthesis.speak(speech);
 }
+
+document.addEventListener('click', function(event) {
+  if (event.target && event.target.closest('.play-sound-button')) {
+    const button = event.target.closest('.play-sound-button');
+    const messageContainer = button.closest('.bot-message');
+    const messageText = messageContainer.textContent.trim(); // Read the raw text content
+
+    // Play the sound
+    playSound(messageText);
+  }
+});
+
+
+
+
 
 async function callAIAPI(prompt,apiKey) {
   try {
@@ -576,40 +645,75 @@ function deleteChat(problemId) {
     console.error(`Caught error while deleting message: ${error.message}`);
   }
 }
-// TODO: generate prompt
+// TODO: 
 function generatePrompt(userMessage) {
   return `
-    You are an assistant helping users with programming problems. Use the following context to answer the user's query accurately and concisely. 
-    Your response must stay within the scope of the provided problem unless the user is engaging in common pleasantries (e.g., saying "hello" or "thank you"). 
-    Respond warmly to pleasantries, but for unrelated questions, politely inform the user that the query is out of scope.
+    You are a professional programming assistant tasked with helping users solve a specific coding problem. Your responses must stay strictly within the context of the provided problem, using the details and terminology relevant to the problem itself. Do not provide general programming explanations unless they directly relate to the problem's context.
 
     Context:
-      Problem Title: ${problemDetails.title}
-      Difficulty: ${problemDetails.difficulty}
-      Time Limit: ${problemDetails.timeLimit}
-      Memory Limit: ${problemDetails.memoryLimit}
-      Score: ${problemDetails.score}
-      Description: ${problemDetails.description}
-      Input Format: ${problemDetails.inputFormat}
-      Output Format: ${problemDetails.outputFormat}
-      Constraints: ${problemDetails.constraints}
-      Notes: ${problemDetails.note}
-      Example Input/Output: ${JSON.stringify(problemDetails.samples)}
-      User Code : ${problemDetails.userCode}
-      Hints : ${JSON.stringify(problemDetails.hints)}
-      Editorial Code : ${JSON.stringify(problemDetails.editorialCode)}
-      Last Conversation Context : ${getLastContext(5)}
+      - **Problem Title:** ${problemDetails.title}
+      - **Difficulty:** ${problemDetails.difficulty}
+      - **Time Limit:** ${problemDetails.timeLimit}
+      - **Memory Limit:** ${problemDetails.memoryLimit}
+      - **Score:** ${problemDetails.score}
+      - **Description:** ${problemDetails.description}
+      - **Input Format:** ${problemDetails.inputFormat}
+      - **Output Format:** ${problemDetails.outputFormat}
+      - **Constraints:** ${problemDetails.constraints}
+      - **Notes:** ${problemDetails.note}
+      - **Example Input/Output:** ${JSON.stringify(problemDetails.samples)}
+      - **User Code:** ${problemDetails.userCode}
+      - **Hints:** ${JSON.stringify(problemDetails.hints)}
+      - **Editorial Code:** ${JSON.stringify(problemDetails.editorialCode)}
+      - **Last Conversation Context (Up to 5):** ${getLastContext(5)}
+
     User Message: ${userMessage}
 
-    Instructions for your response:
-    - If the user's message is a general greeting (e.g., "hello", "hi") or a polite expression (e.g., "thank you"), respond warmly without repeating problem details.
-    - For problem-related questions, answer using only the relevant details from the context provided.
-    - Avoid repeating the entire problem details unless explicitly requested by the user.
-    - If the user's question is unrelated to the problem and not a pleasantry, politely inform them that the query is out of scope.
-    - Format your response as structured HTML (with paragraphs, and lists as needed).
-    - Stay professional, concise, and friendly.
+    **Guidelines for your response:**
+    1. **Focus on the Problem Context:**
+       - Answer the user's question only if it directly pertains to the given problem.
+       - Use relevant details from the context and avoid general programming discussions unless they directly apply.
+       - Example: If the problem involves trees, provide explanations only about tree-related concepts that are relevant to solving the problem.
+
+    2. **For Greetings or Polite Expressions:**
+       - Respond warmly but avoid reiterating the problem details.
+       - Example: "Hello! How can I assist you with this problem?" or "You're welcome! Let me know if you have further questions."
+
+    3. **For Problem-Related Questions:**
+       - Address the query using specific details from the problem.
+       - Avoid generic explanations about topics (like "what is dynamic programming?") unless they directly help solve the problem in context.
+       - Use examples or code snippets tailored to the problem where appropriate.
+
+    4. **For Unrelated Questions:**
+       - Politely inform the user that the query is outside the scope of the current problem.
+       - Example: "I'm here to assist with programming questions specifically related to this problem. Could you clarify how your query connects to the problem?"
+
+    5. **Formatting:**
+       - Use structured HTML with tags like '<p>' for paragraphs, '<ul>' for lists, and '<pre>' for code snippets.
+       - Keep your tone professional, concise, and friendly.
+
+    6. **General Notes:**
+       - Avoid introducing unrelated concepts.
+       - If the user's question is ambiguous, ask for clarification politely.
+
+    Example Output:
+    <p>To solve the problem efficiently, consider using a depth-first search (DFS) approach on the tree. This will help you identify nodes meeting the criteria:</p>
+    <ul>
+      <li>Start from the root and traverse its children recursively.</li>
+      <li>Track the visited nodes to avoid redundant computations.</li>
+    </ul>
+    <pre>
+// Sample Code for DFS
+function dfs(node) {
+  if (!node) return;
+  console.log(node.value);
+  dfs(node.left);
+  dfs(node.right);
+}
+    </pre>
   `;
 }
+
 
 window.addEventListener("xhrDataFetched", (event) => {
   XhrRequestData = event.detail;
@@ -652,20 +756,22 @@ function displayMessages(problemId) {
   });
 }
 
-
+// TODO : 
 function getLastContext(size) {
   const chatBox = document.getElementById('chatBox');
   const userMessages = Array.from(chatBox.getElementsByClassName('user-message'));
   const botMessages = Array.from(chatBox.getElementsByClassName('bot-message'));
 
-  const context = [];
+  let context = [];
   const messagePairs = Math.min(size, userMessages.length, botMessages.length);
-
+  console.log(`usermessage : ${userMessages.length} , botmessage: ${botMessages.length}, messagePairs: ${messagePairs}`)
   for (let i = 0; i < messagePairs; i++) {
-      const userMessage = userMessages[userMessages.length - messagePairs + i]?.innerText || '';
-      const botReply = botMessages[botMessages.length - messagePairs + i]?.innerText || '';
-      context.push(`User Message: ${userMessage}\nAI Reply: ${botReply}`);
+      const userMessage = userMessages[((userMessages.length)-1-messagePairs+i)]?.innerText || '';
+      const botReply = botMessages[((botMessages.length)-messagePairs+i)]?.innerText || '';
+      context.push(`User question: ${userMessage}\nAI Reply: ${botReply}`);
   }
-
-  return context.join('\n\n'); // Join each message pair with spacing for better readability
+  
+  context =  context.join('\n\n'); // Join each message pair with spacing for better readability
+  console.log(context)
+  return context
 }
