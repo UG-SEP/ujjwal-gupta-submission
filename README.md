@@ -7,7 +7,7 @@ The AlgoZenith Chat Bot Chrome Extension revolutionizes how you interact with AI
 ## Key Features
 
 ### 🌟 Seamless Integration
-- **AlgoZenith Site-like UI**: Enjoy a visually consistent experience with the AlgoZenith site, making navigation and usage effortless.
+- **AlgoZenith Site-like UI**: Enjoy a visually consistent experience with the AlgoZenith site( UI supportable for both dark and light theme of the site)
 - **Themed Chat Box**: Matches the design of the AlgoZenith site for a unified user experience.
 
 ### 🔑 Personalization
@@ -30,7 +30,7 @@ The AlgoZenith Chat Bot Chrome Extension revolutionizes how you interact with AI
 
 ### 🚀 Reliability and Efficiency
 - **Effective Error Handling**: Smoothly manages unexpected issues to ensure uninterrupted interaction.
-
+- **Lazy Loading**: The AI Chat Bot help button is only visible once the title and description of the problem page is loaded to avoid unnecessary click before the content loaded
 ---
 
 ## What Makes AlgoZenith Chat Bot Different?
