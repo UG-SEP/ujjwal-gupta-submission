@@ -18,6 +18,7 @@ The AlgoZenith Chat Bot Chrome Extension revolutionizes how you interact with AI
 - **Scoped AI Training**: Focused exclusively on solving specific problems, ensuring responses stay relevant and on-point.
 - **Context Retention**: Keeps track of previous discussions for a more cohesive conversational flow.
 - **Advanced Data Extraction**: Extract problem details, user-submitted code, hints, and editorial solutions with ease.
+- **Fallback Mechanism**: The extension uses fallback mechanism to retrieve the problem Details both from the (XHR Request and through DOM)
 
 ### 📂 Data Management
 - **Delete Chat History**: Effortlessly clear past conversations to keep your workspace tidy.
