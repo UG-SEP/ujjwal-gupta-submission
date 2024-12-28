@@ -520,6 +520,7 @@ function decorateMessage(message, isUser) {
 
 function displayMessages(problemId) {
   getMessages(problemId, (messages) => {
+    if(messages){
     const chatBox = document.getElementById("chatBox");
 
     chatBox.innerHTML = "";
@@ -539,6 +540,7 @@ function displayMessages(problemId) {
     });
 
     chatBox.scrollTop = chatBox.scrollHeight;
+  }
   });
 }
 
@@ -670,6 +672,7 @@ function saveMessage(problemId, message, callback) {
       });
     });
   } catch (error) {
+    alert("Message could not save. Reload to fix.")
     console.error(`Caught error while saving message: ${error.message}`);
   }
 }
@@ -686,6 +689,7 @@ function getMessages(problemId, callback) {
       }
     });
   } catch (error) {
+    alert("Unable to reterieve last conversation. Please reload")
     console.error(`Caught error while retrieving message: ${error.message}`);
     callback(null);
   }
@@ -699,6 +703,7 @@ function deleteChat(problemId) {
       }
     });
   } catch (error) {
+    alert("Unable to delete chat history. Please reload")
     console.error(`Caught error while deleting message: ${error.message}`);
   }
 }
@@ -805,7 +810,6 @@ function getLastContext(size) {
 
     context.push(`User question: ${userMessage}\nAI Reply: ${botReply}\nFeedback: ${feedback}`);
   }
-  console.log(context)
   return context.join('\n\n');
 }
 
