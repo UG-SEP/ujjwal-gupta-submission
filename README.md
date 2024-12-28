@@ -4,6 +4,8 @@ The AlgoZenith Chat Bot Chrome Extension revolutionizes how you interact with AI
 
 ---
 
+![](project-demo.mp4)
+
 ## Key Features
 
 ### 🌟 Seamless Integration
@@ -60,11 +62,7 @@ The AlgoZenith Chat Bot Chrome Extension revolutionizes how you interact with AI
 
 ---
 
-## Working Demo
 
-Check out the [Working Demo Video](#) to see the AlgoZenith Chat Bot in action. This video walks you through the features, installation process, and practical usage of the extension.
-
----
 
 ## Contributing
 
