@@ -1,76 +1,98 @@
 
+// Global Variable Declaration
 
 let lastUrl = ""
 let problemDetails = {}
 let XhrRequestData = ""
 const recognition = new webkitSpeechRecognition() || new SpeechRecognition();
-recognition.lang = 'en-US'; // Set the language
-recognition.continuous = false; // Stop recognition after one result
-recognition.interimResults = false; // Get final results only
+recognition.lang = 'en-IN';
+recognition.continuous = false;
+recognition.interimResults = false;
+
+
+// Mutation observe and function to detect page change , and problem page
 
 function areRequiredElementsLoaded() {
   const problemTitle = document.getElementsByClassName("Header_resource_heading__cpRp1")[0]?.textContent.trim();
   const problemDescription = document.getElementsByClassName("coding_desc__pltWY")[0]?.textContent.trim();
 
-  // Return true if all the required elements are found and their content is non-empty
   return (
-    problemTitle && 
+    problemTitle &&
     problemDescription
   );
 }
 
+function isUrlChanged() {
+  const currentUrl = window.location.pathname;
+  if (currentUrl !== lastUrl) {
+    lastUrl = currentUrl;
+    return true;
+  }
+  return false;
+}
+
+function isProblemsPage() {
+  const pathParts = window.location.pathname.split("/");
+  return pathParts.length >= 3 && pathParts[1] === "problems" && pathParts[2];
+}
+
 const observer = new MutationObserver((mutations) => {
   mutations.forEach((mutation) => {
-      if (mutation.type === "childList" && isProblemsPage()) {
-          if (isUrlChanged() || !document.getElementById("help-button")) {
-              // Wait until all required content is loaded
-              injectScript();
-              if (areRequiredElementsLoaded()) {
-                  cleanElements();
-                  createElement(); 
-              } 
-          }
+    if (mutation.type === "childList" && isProblemsPage()) {
+      if (isUrlChanged() || !document.getElementById("help-button")) {
+        injectScript();
+        if (areRequiredElementsLoaded()) {
+          cleanElements();
+          createElement();
+        }
       }
+    }
   });
 });
 
-function createElement(){
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
+
+// Mutation Observer Done
+
+// Elements related functions
+
+function createElement() {
   const doubtButton = document.getElementsByClassName("coding_ask_doubt_button__FjwXJ")[0];
 
-  // Button container element
   const buttonContainer = createButtonContainer()
   doubtButton.parentNode.insertBefore(buttonContainer, doubtButton);
   buttonContainer.appendChild(doubtButton);
 
-  // Help button element
   const helpButton = createHelpButton()
   buttonContainer.appendChild(helpButton);
 
-  // Added a event listener for the help button
   helpButton.addEventListener("click", openChatBox);
 }
 
-function createButtonContainer(){
+function createButtonContainer() {
   const buttonContainer = document.createElement("div");
-      buttonContainer.id = "button-container";
-      buttonContainer.style.display = "flex";
-      buttonContainer.style.justifyContent = "flex-end";
-      buttonContainer.style.gap = "10px";
-      return buttonContainer
+  buttonContainer.id = "button-container";
+  buttonContainer.style.display = "flex";
+  buttonContainer.style.justifyContent = "flex-end";
+  buttonContainer.style.gap = "10px";
+  return buttonContainer
 }
 
-function createHelpButton(){
+function createHelpButton() {
   const helpButton = document.createElement("button");
-      helpButton.id = "help-button";
-      helpButton.className = "ant-btn css-19gw05y ant-btn-default Button_gradient_light_button__ZDAR_ coding_ask_doubt_button__FjwXJ gap-1 py-2 px-3 overflow-hidden";
-      helpButton.style.height = "fit-content";
-      helpButton.innerHTML = `
+  helpButton.id = "help-button";
+  helpButton.className = "ant-btn css-19gw05y ant-btn-default Button_gradient_light_button__ZDAR_ coding_ask_doubt_button__FjwXJ gap-1 py-2 px-3 overflow-hidden";
+  helpButton.style.height = "fit-content";
+  helpButton.innerHTML = `
           <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h4m5 5l-3-3H6a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2h-3l-3 3z"></path>
           </svg>
           <span class="coding_ask_doubt_gradient_text__FX_hZ">AI Help</span>
       `;
-    return helpButton
+  return helpButton
 }
 function cleanElements() {
   const buttonContainer = document.getElementById("help-button");
@@ -81,132 +103,109 @@ function cleanElements() {
   problemDetails = {}
 
 }
+// Elements related function done
 
-// Initialize MutationObserver
 
-observer.observe(document.body, {
-  childList: true,
-  subtree: true,
-});
 
-function isUrlChanged() {
-  const currentUrl = window.location.pathname;
-  if (currentUrl !== lastUrl) {
-      lastUrl = currentUrl; // Update lastUrl
-      return true; // URL has changed
+// Extracting Problem Details
+
+function extractProblemDetails() {
+  let parsedData;
+  try {
+    parsedData = JSON.parse(XhrRequestData.response)?.data || {};
+  } catch (error) {
+    alert("Something information are not loaded. Refresh for smooth performance.")
+    console.error("Failed to parse xhrRequestData.response:", error);
+    parsedData = {};
   }
-  return false; // URL has not changed
+  const primaryDetails = {
+    title: parsedData?.title || "",
+    description: parsedData?.body || "",
+    constraints: parsedData?.constraints || "",
+    editorialCode: parsedData?.editorial_code || [],
+    hints: parsedData?.hints || {},
+    id: (parsedData?.id).toString() || "",
+    inputFormat: parsedData?.input_format || "",
+    memoryLimit: parsedData?.memory_limit_mb || "",
+    note: parsedData?.note || "",
+    outputFormat: parsedData?.output_format || "",
+    samples: parsedData?.samples || [],
+    timeLimit: parsedData?.time_limit_sec || ""
+  };
+  const fallbackDetails = {
+    id: extractProblemNumber(window.location.pathname),
+    title: document.getElementsByClassName("Header_resource_heading__cpRp1")[0]?.textContent || "",
+    difficulty: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[0]?.textContent || "",
+    timeLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[1]?.textContent || "",
+    memoryLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[2]?.textContent || "",
+    score: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[3]?.textContent || "",
+    description: document.getElementsByClassName("coding_desc__pltWY")[0]?.textContent || "",
+    inputFormat: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[0]?.textContent || "",
+    outputFormat: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[1]?.textContent || "",
+    constraints: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[2]?.textContent || "",
+    note: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[3]?.textContent || "",
+    inputOutput: extractInputOutput() || [],
+    userCode: extractUserCode() || "",
+  };
+  problemDetails = {
+    title: primaryDetails?.title || fallbackDetails?.title,
+    description: primaryDetails?.description || fallbackDetails?.description,
+    constraints: primaryDetails?.constraints || fallbackDetails?.constraints,
+    editorialCode: primaryDetails?.editorialCode || [],
+    hints: primaryDetails?.hints || {},
+    problemId: primaryDetails?.id || fallbackDetails?.id,
+    inputFormat: primaryDetails?.inputFormat || fallbackDetails?.inputFormat,
+    memoryLimit: primaryDetails?.memoryLimit || fallbackDetails?.memoryLimit,
+    note: primaryDetails?.note || fallbackDetails?.note,
+    outputFormat: primaryDetails?.outputFormat || fallbackDetails?.outputFormat,
+    samples: primaryDetails?.samples || fallbackDetails?.inputOutput,
+    timeLimit: primaryDetails?.timeLimit || fallbackDetails?.timeLimit,
+    userCode: fallbackDetails?.userCode || "",
+    score: fallbackDetails?.score || "",
+    difficulty: fallbackDetails?.difficulty || "",
+  };
+
 }
 
-function isProblemsPage() {
-  const pathParts = window.location.pathname.split("/"); // Split the URL path by "/"
-  return pathParts.length >= 3 && pathParts[1] === "problems" && pathParts[2]; // Ensure "/problems/some-id"
-}
+function extractProblemNumber(url) {
+  const parts = url.split('/');
+  let lastPart = parts[parts.length - 1];
 
-  function extractProblemDetails() {
-    // Parse the `response` field from `xhrRequestData` (assuming it's a JSON string)
-    let parsedData;
-    try {
-        parsedData = JSON.parse(XhrRequestData.response)?.data || {};
-    } catch (error) {
-        console.error("Failed to parse xhrRequestData.response:", error);
-        parsedData = {};
+  let number = '';
+  for (let i = lastPart.length - 1; i >= 0; i--) {
+    if (isNaN(lastPart[i])) {
+      break;
     }
-    // Extract data from `xhrRequestData` (primary source)
-    const primaryDetails = {
-        title: parsedData.title || "",
-        description: parsedData.body || "",
-        constraints: parsedData.constraints || "",
-        editorialCode: parsedData.editorial_code || [],
-        hints: parsedData.hints || {},
-        id: (parsedData.id).toString() || "",
-        inputFormat: parsedData.input_format || "",
-        memoryLimit: parsedData.memory_limit_mb || "",
-        note: parsedData.note || "",
-        outputFormat: parsedData.output_format || "",
-        samples: parsedData.samples || [],
-        timeLimit: parsedData.time_limit_sec || ""
-    };
-    // Extract data from fallback DOM-based approach if primary details are missing
-    const fallbackDetails = {
-        id :extractProblemNumber(window.location.pathname),
-        title: document.getElementsByClassName("Header_resource_heading__cpRp1")[0]?.textContent || "",
-        difficulty: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[0]?.textContent || "",
-        timeLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[1]?.textContent || "",
-        memoryLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[2]?.textContent || "",
-        score: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[3]?.textContent || "",
-        description: document.getElementsByClassName("coding_desc__pltWY")[0]?.textContent || "",
-        inputFormat: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[0]?.textContent || "",
-        outputFormat: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[1]?.textContent || "",
-        constraints: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[2]?.textContent || "",
-        note: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[3]?.textContent || "",
-        inputOutput: extractInputOutput() || [],
-        userCode: extractUserCode() || "",
-    };
-    // Combine primary and fallback details (fallback only used for missing fields)
-    problemDetails = {
-        title: primaryDetails.title || fallbackDetails.title,
-        description: primaryDetails.description || fallbackDetails.description,
-        constraints: primaryDetails.constraints || fallbackDetails.constraints,
-        editorialCode: primaryDetails.editorialCode || [],
-        hints: primaryDetails.hints || {},
-        problemId: primaryDetails.id || fallbackDetails.id,
-        inputFormat: primaryDetails.inputFormat || fallbackDetails.inputFormat,
-        memoryLimit: primaryDetails.memoryLimit || fallbackDetails.memoryLimit,
-        note: primaryDetails.note || fallbackDetails.note,
-        outputFormat: primaryDetails.outputFormat || fallbackDetails.outputFormat,
-        samples: primaryDetails.samples || fallbackDetails.inputOutput,
-        timeLimit: primaryDetails.timeLimit || fallbackDetails.timeLimit,
-        userCode: fallbackDetails.userCode || "",
-        score : fallbackDetails.score || "",
-        difficulty: fallbackDetails.difficulty || "",
-    };
+    number = lastPart[i] + number;
+  }
 
+  return number;
 }
 
-  function extractProblemNumber(url) {
-    const parts = url.split('/'); // Split the URL by '/'
-    let lastPart = parts[parts.length - 1]; // Get the last part
-    
-    // Keep reading from the end of the last part until you find an integer
-    let number = '';
-    for (let i = lastPart.length - 1; i >= 0; i--) {
-        if (isNaN(lastPart[i])) {
-            break; // Stop if we encounter a non-numeric character
-        }
-        number = lastPart[i] + number; // Build the number in reverse
-    }
-
-    return number; // Return the extracted number
-}
 function extractUserCode() {
-  // Assuming `extractLocalStorage` is a function that extracts data from localStorage
+
   let localStorageData = extractLocalStorage();
-  
-  // Extract the problem number from the current URL
-  const problemNo = extractProblemNumber(window.location.pathname); // Use `window.location.pathname` to get the current URL
-  let language = localStorageData['editor-language'] || "C++14"; // Assuming the language is stored with the key 'editor-language'
+
+  const problemNo = extractProblemNumber(window.location.pathname);
+  let language = localStorageData['editor-language'] || "C++14";
   if (language.startsWith('"') && language.endsWith('"')) {
-    language = language.slice(1, -1); // Remove the first and last character (quotes)
-}
-  // Construct the expression to search for
-  const expression = createExpression(problemNo,language);
-  // Check if any key in localStorageData contains the expression
+    language = language.slice(1, -1);
+  }
+
+  const expression = createExpression(problemNo, language);
   for (let key in localStorageData) {
     if (
-        localStorageData.hasOwnProperty(key) && 
-        key.includes(expression) &&
-        key.endsWith(expression) // Ensures the key ends with the exact expression
+      localStorageData.hasOwnProperty(key) &&
+      key.includes(expression) &&
+      key.endsWith(expression)
     ) {
-        return localStorageData[key]; // Return the value of the first key that matches exactly
+      return localStorageData[key];
     }
+  }
+  return '';
 }
 
-  
-  return ''; // If no match is found, return an empty string
-}
-
-function createExpression(problemNo,language){
+function createExpression(problemNo, language) {
   return `${problemNo}_${language}`
 }
 
@@ -214,54 +213,52 @@ function createExpression(problemNo,language){
 function extractLocalStorage() {
   const localStorageData = {};
   for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      localStorageData[key] = localStorage.getItem(key);
+    const key = localStorage.key(i);
+    localStorageData[key] = localStorage.getItem(key);
   }
   return localStorageData;
 }
 
-function extractInputOutput(){
+function extractInputOutput() {
 
-const elements = document.querySelectorAll(".coding_input_format__pv9fS");
-const inputOutputPairs = [];
+  const elements = document.querySelectorAll(".coding_input_format__pv9fS");
+  const inputOutputPairs = [];
 
-for (let i = 3; i < elements.length; i += 2) {
-  if(i+1<elements.length){
-  const input = elements[i]?.textContent?.trim() || "";  
-  const output = elements[i + 1]?.textContent?.trim() || "";  
-  inputOutputPairs.push({ input, output });
-  }  
+  for (let i = 3; i < elements.length; i += 2) {
+    if (i + 1 < elements.length) {
+      const input = elements[i]?.textContent?.trim() || "";
+      const output = elements[i + 1]?.textContent?.trim() || "";
+      inputOutputPairs.push({ input, output });
+    }
+  }
+
+  let jsonString = formatToJson(inputOutputPairs)
+  return jsonString.replace(/\\\\n/g, "\\n");
+
 }
 
-let jsonString = formatToJson(inputOutputPairs)
-return jsonString.replace(/\\\\n/g, "\\n"); 
-
-}
-function formatToJson(obj){
+function formatToJson(obj) {
   return JSON.stringify(obj)
 }
-// function extractId(url){
-//     const start = url.indexOf("problems/") + "problems/".length;
-//     const end = url.indexOf("?",start);
-//     return end === -1 ? url.substring(start): url.substring(start,end);
-// }
+// Problem Details Extraction Done
+
+// Chat Box Setup Start
 
 function openChatBox() {
-    let aiModal = document.getElementById("modalContainer");
-      extractProblemDetails();
-      aiModal = createModal();
-      displayMessages(problemDetails.problemId)
+  let aiModal = document.getElementById("modalContainer");
+  extractProblemDetails();
+  aiModal = createModal();
+  displayMessages(problemDetails.problemId)
 
-    // Attach the close button listener here to make sure it works
-    const closeAIBtn = aiModal.querySelector("#closeAIBtn");
-    closeAIBtn.addEventListener("click", closeModal);
-    
-    attachEventListeners();
-    
+  const closeAIBtn = aiModal.querySelector("#closeAIBtn");
+  closeAIBtn.addEventListener("click", closeModal);
+
+  attachEventListeners();
+
 }
 
 function createModal() {
-    const modalHtml = `
+  const modalHtml = `
     <div id="modalContainer" class="w-100 h-100 position-fixed d-flex align-items-start justify-content-center hide-scrollbar" style="z-index: 100; top: 0px; left: 0px; background-color: rgba(23, 43, 77, 0.8); backdrop-filter: blur(8px); overflow-y: auto;">
       <section class="overflow-hidden p-4 w-100 h-100">
         <div class="DoubtForum_new_post_modal_container__hJcF2 border_primary border_radius_12 d-flex flex-column" style="height: 100%;">
@@ -330,46 +327,38 @@ function createModal() {
     </div>
     `;
 
-    document.body.insertAdjacentHTML("beforeend", modalHtml);
-    return document.getElementById('modalContainer');
+  document.body.insertAdjacentHTML("beforeend", modalHtml);
+  return document.getElementById('modalContainer');
 }
 
 function attachEventListeners() {
-    document.getElementById('delete-button')?.addEventListener('click', deleteHistory);
-    document.getElementById('export-chat-button')?.addEventListener('click', exportChat);
-    document.getElementById('sendMsg')?.addEventListener('click', sendMessage);
-    document.getElementById('voiceType')?.addEventListener('click',startListening);
+  document.getElementById('delete-button')?.addEventListener('click', deleteHistory);
+  document.getElementById('export-chat-button')?.addEventListener('click', exportChat);
+  document.getElementById('sendMsg')?.addEventListener('click', sendMessage);
+  document.getElementById('voiceType')?.addEventListener('click', startListening);
 }
 
-function startListening(){
-  recognition.start();
-}
-recognition.onresult = function(event) {
-  const transcript = event.results[0][0].transcript;
-  //console.log('You said:', transcript);
 
-  // Update the value of the textarea
-  let userMessage = document.getElementById('userMessage');
-  if (userMessage.value)
-  userMessage.value += ` ${transcript}`; // Use 'value' instead of 'innerHTML'
-  else userMessage.value = transcript
-};
-recognition.onerror = function(event) {
-  console.error('Error occurred in recognition:', event.error);
-};
 
 function closeModal() {
-    const modal = document.getElementById('modalContainer');
+  const modal = document.getElementById('modalContainer');
+  if (window.speechSynthesis.speaking) {
     window.speechSynthesis.cancel();
-    modal.remove();
+  }
+  modal.remove();
 }
 
+// Chat Box Setup Done
+
+
+// Delete and Export start
+
 function deleteHistory() {
-    const chatBox = document.getElementById('chatBox');
-    const textArea = document.getElementById('userMessage')
-    textArea.innerHTML = '';
-    chatBox.innerHTML = ''; 
-    deleteChat(problemDetails.problemId)
+  const chatBox = document.getElementById('chatBox');
+  const textArea = document.getElementById('userMessage')
+  textArea.innerHTML = '';
+  chatBox.innerHTML = '';
+  deleteChat(problemDetails.problemId)
 
 }
 
@@ -377,90 +366,98 @@ function exportChat() {
   const chatBox = document.getElementById('chatBox');
   const userMessages = chatBox.getElementsByClassName('user-message');
   const botMessages = chatBox.getElementsByClassName('bot-message');
-  
+
   let formattedMessages = [];
   let totalMessages = Math.max(userMessages.length, botMessages.length);
-  // Alternate user and bot messages
+
   for (let i = 0; i < totalMessages; i++) {
-      if (i < userMessages.length) {
-          formattedMessages.push(`You: ${userMessages[i].innerText}`);
-      }
-      if (i < botMessages.length) {
-          formattedMessages.push(`AI: ${botMessages[i].innerText}`);
-      }
+    if (i < userMessages.length) {
+      formattedMessages.push(`You: ${userMessages[i].innerText}`);
+    }
+    if (i < botMessages.length) {
+      formattedMessages.push(`AI: ${botMessages[i].innerText}`);
+    }
   }
 
-  // Combine all formatted messages into a single string
+
   const chatHistory = formattedMessages.join('\n\n');
-  
-  // Create a Blob object containing the chat history
+
   const blob = new Blob([chatHistory], { type: 'text/plain' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = `chat-history-for-${problemDetails.title}.txt`; // Assuming `problemDetails.title` is defined
-  link.click(); // Trigger the download
+  link.download = `chat-history-of-${problemDetails?.title || "problems statement"}.txt`;
+  link.click();
 }
 
-function disableSendButton(){
-  let sendButton = document.getElementById("sendMsg");
-  if(sendButton)
-  sendButton.disabled = true
-}
-function enableSendButton(){
-  let sendButton = document.getElementById("sendMsg");
-  if(sendButton)
-  sendButton.disabled = false
-}
+// Delete and Export end
+
+
+// Message Setup Start
+
+
 async function sendMessage() {
-  const userMessage = document.getElementById('userMessage').value.trim(); // Trim unnecessary spaces
+  const userMessage = document.getElementById('userMessage').value.trim();
   const chatBox = document.getElementById('chatBox');
   const apiKey = await getApiKey();
 
   if (apiKey) {
-      // Append user's message to chatbox
-      if (userMessage) {
-        window.speechSynthesis.cancel();
-          chatBox.innerHTML += decorateMessage(userMessage, true);
 
-          // Clear the input field
-          document.getElementById('userMessage').value = '';
-          disableSendButton();
+    if (userMessage) {
+      window.speechSynthesis.cancel();
+      chatBox.innerHTML += decorateMessage(userMessage, true);
 
-          // Declare botMessage outside to use it later
-          let botMessage = "";
 
-          try {
-              // Generate a prompt and call the AI API
-              const prompt = generatePrompt(userMessage);
-              botMessage = await callAIAPI(prompt, apiKey);
+      document.getElementById('userMessage').value = '';
+      disableSendButton();
 
-              // Check if botMessage is valid
-              if (botMessage) {
-                  // Append AI's response
-                  chatBox.innerHTML += decorateMessage(botMessage);
-                  chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to the latest message
 
-                  // Save the user message and AI response
-                  saveMessage(problemDetails.problemId, userMessage, () => {
-                      saveMessage(problemDetails.problemId, botMessage);
-                  });
-              } else {
-                  // If botMessage is null or invalid, alert the user
-                  alert("Invalid API key or response. Please check your API key.");
-              }
-          } catch (error) {
-              botMessage = "Sorry, something went wrong!";
-              chatBox.innerHTML += decorateMessage(botMessage);
-              console.error("Error in AI API call:", error);
-          }
+      let botMessage = "";
 
-          enableSendButton();
+      try {
+
+        const prompt = generatePrompt(userMessage);
+        botMessage = await callAIAPI(prompt, apiKey);
+
+
+        if (botMessage) {
+
+          chatBox.innerHTML += decorateMessage(botMessage);
+          chatBox.scrollTop = chatBox.scrollHeight;
+
+
+          saveMessage(problemDetails.problemId, userMessage, () => {
+            saveMessage(problemDetails.problemId, botMessage);
+          });
+        } else {
+
+          const userMessages = document.getElementsByClassName("user-message");
+          const lastUserMessage = userMessages[userMessages.length - 1];
+          lastUserMessage.classList.remove('user-message');
+          alert("Invalid API key or response. Please check your API key.");
+        }
+      } catch (error) {
+        botMessage = "Sorry, something went wrong!";
+        chatBox.innerHTML += decorateMessage(botMessage);
+        console.error("Error in AI API call:", error);
       }
+
+      enableSendButton();
+    }
   } else {
-      alert("No API key found. Please provide a valid API key.");
+    alert("No API key found. Please provide a valid API key.");
   }
 }
 
+function disableSendButton() {
+  let sendButton = document.getElementById("sendMsg");
+  if (sendButton)
+    sendButton.disabled = true
+}
+function enableSendButton() {
+  let sendButton = document.getElementById("sendMsg");
+  if (sendButton)
+    sendButton.disabled = false
+}
 
 function decorateMessage(message, isUser) {
   return `<div style="
@@ -481,9 +478,24 @@ function decorateMessage(message, isUser) {
       text-align: left;
     "
       class="${isUser ? 'user-message' : 'bot-message'}"
+      data-feedback='0'
     >
       ${message}
       ${!isUser ? `
+        <div style="display: flex; margin-top: 10px;">
+        <button class="feedback-button like-button" style="border: none; background: none; cursor: pointer; margin-right: 5px;" title="Like">
+          <!-- Like SVG -->
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-hand-thumbs-up" viewBox="0 0 16 16">
+  <path d="M8.864.046C7.908-.193 7.02.53 6.956 1.466c-.072 1.051-.23 2.016-.428 2.59-.125.36-.479 1.013-1.04 1.639-.557.623-1.282 1.178-2.131 1.41C2.685 7.288 2 7.87 2 8.72v4.001c0 .845.682 1.464 1.448 1.545 1.07.114 1.564.415 2.068.723l.048.03c.272.165.578.348.97.484.397.136.861.217 1.466.217h3.5c.937 0 1.599-.477 1.934-1.064a1.86 1.86 0 0 0 .254-.912c0-.152-.023-.312-.077-.464.201-.263.38-.578.488-.901.11-.33.172-.762.004-1.149.069-.13.12-.269.159-.403.077-.27.113-.568.113-.857 0-.288-.036-.585-.113-.856a2 2 0 0 0-.138-.362 1.9 1.9 0 0 0 .234-1.734c-.206-.592-.682-1.1-1.2-1.272-.847-.282-1.803-.276-2.516-.211a10 10 0 0 0-.443.05 9.4 9.4 0 0 0-.062-4.509A1.38 1.38 0 0 0 9.125.111zM11.5 14.721H8c-.51 0-.863-.069-1.14-.164-.281-.097-.506-.228-.776-.393l-.04-.024c-.555-.339-1.198-.731-2.49-.868-.333-.036-.554-.29-.554-.55V8.72c0-.254.226-.543.62-.65 1.095-.3 1.977-.996 2.614-1.708.635-.71 1.064-1.475 1.238-1.978.243-.7.407-1.768.482-2.85.025-.362.36-.594.667-.518l.262.066c.16.04.258.143.288.255a8.34 8.34 0 0 1-.145 4.725.5.5 0 0 0 .595.644l.003-.001.014-.003.058-.014a9 9 0 0 1 1.036-.157c.663-.06 1.457-.054 2.11.164.175.058.45.3.57.65.107.308.087.67-.266 1.022l-.353.353.353.354c.043.043.105.141.154.315.048.167.075.37.075.581 0 .212-.027.414-.075.582-.05.174-.111.272-.154.315l-.353.353.353.354c.047.047.109.177.005.488a2.2 2.2 0 0 1-.505.805l-.353.353.353.354c.006.005.041.05.041.17a.9.9 0 0 1-.121.416c-.165.288-.503.56-1.066.56z"/>
+</svg>
+        </button>
+        <button class="feedback-button dislike-button" style="border: none; background: none; cursor: pointer; margin-right: 5px;" title="Dislike">
+          <!-- Like SVG -->
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-hand-thumbs-down" viewBox="0 0 16 16">
+  <path d="M8.864 15.674c-.956.24-1.843-.484-1.908-1.42-.072-1.05-.23-2.015-.428-2.59-.125-.36-.479-1.012-1.04-1.638-.557-.624-1.282-1.179-2.131-1.41C2.685 8.432 2 7.85 2 7V3c0-.845.682-1.464 1.448-1.546 1.07-.113 1.564-.415 2.068-.723l.048-.029c.272-.166.578-.349.97-.484C6.931.08 7.395 0 8 0h3.5c.937 0 1.599.478 1.934 1.064.164.287.254.607.254.913 0 .152-.023.312-.077.464.201.262.38.577.488.9.11.33.172.762.004 1.15.069.13.12.268.159.403.077.27.113.567.113.856s-.036.586-.113.856c-.035.12-.08.244-.138.363.394.571.418 1.2.234 1.733-.206.592-.682 1.1-1.2 1.272-.847.283-1.803.276-2.516.211a10 10 0 0 1-.443-.05 9.36 9.36 0 0 1-.062 4.51c-.138.508-.55.848-1.012.964zM11.5 1H8c-.51 0-.863.068-1.14.163-.281.097-.506.229-.776.393l-.04.025c-.555.338-1.198.73-2.49.868-.333.035-.554.29-.554.55V7c0 .255.226.543.62.65 1.095.3 1.977.997 2.614 1.709.635.71 1.064 1.475 1.238 1.977.243.7.407 1.768.482 2.85.025.362.36.595.667.518l.262-.065c.16-.04.258-.144.288-.255a8.34 8.34 0 0 0-.145-4.726.5.5 0 0 1 .595-.643h.003l.014.004.058.013a9 9 0 0 0 1.036.157c.663.06 1.457.054 2.11-.163.175-.059.45-.301.57-.651.107-.308.087-.67-.266-1.021L12.793 7l.353-.354c.043-.042.105-.14.154-.315.048-.167.075-.37.075-.581s-.027-.414-.075-.581c-.05-.174-.111-.273-.154-.315l-.353-.354.353-.354c.047-.047.109-.176.005-.488a2.2 2.2 0 0 0-.505-.804l-.353-.354.353-.354c.006-.005.041-.05.041-.17a.9.9 0 0 0-.121-.415C12.4 1.272 12.063 1 11.5 1"/>
+</svg>
+        </button>
+        </div>
       <button style="
         margin-left: 10px;
         border: none;
@@ -505,38 +517,85 @@ function decorateMessage(message, isUser) {
     </div>
   </div>`;
 }
+
+function displayMessages(problemId) {
+  getMessages(problemId, (messages) => {
+    const chatBox = document.getElementById("chatBox");
+
+    chatBox.innerHTML = "";
+
+    messages.forEach((message, index) => {
+      let decoratedMessage = ""
+      if (index % 2 === 0)
+        decoratedMessage = decorateMessage(message, true);
+      else
+        decoratedMessage = decorateMessage(message, false);
+      const messageElement = document.createElement("div");
+      messageElement.innerHTML = decoratedMessage;
+
+
+
+      chatBox.appendChild(messageElement);
+    });
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+  });
+}
+
+// Message Setup End
+
+// Sound and Mic Setup Start
+
 function playSound(message) {
-  // Stop any ongoing speech
+
   if (window.speechSynthesis.speaking) {
     window.speechSynthesis.cancel();
   }
 
-  // Strip out HTML tags from the message
-  const cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, ""); // Remove HTML tags
+  const cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, "");
 
   const speech = new SpeechSynthesisUtterance(cleanMessage);
-  speech.lang = 'en-US'; // Adjust the language if necessary
+  speech.lang = 'en-IN';
 
-  // Start speaking
   window.speechSynthesis.speak(speech);
 }
 
-document.addEventListener('click', function(event) {
+function startListening() {
+  recognition.start();
+}
+
+recognition.onresult = function (event) {
+  const transcript = event.results[0][0].transcript;
+
+  let userMessage = document.getElementById('userMessage');
+  if (userMessage.value)
+    userMessage.value += ` ${transcript}`;
+  else userMessage.value = transcript
+};
+
+recognition.onerror = function (event) {
+  alert("Sorry, there is an issue in recognition. Reload the page for better performance")
+  console.error('Error occurred in recognition:', event.error);
+};
+
+document.addEventListener('click', function (event) {
   if (event.target && event.target.closest('.play-sound-button')) {
     const button = event.target.closest('.play-sound-button');
     const messageContainer = button.closest('.bot-message');
-    const messageText = messageContainer.textContent.trim(); // Read the raw text content
+    const messageText = messageContainer.textContent.trim();
 
-    // Play the sound
     playSound(messageText);
   }
 });
 
+// Sound and Mic Setup End
 
 
 
 
-async function callAIAPI(prompt,apiKey) {
+// API Setup 
+
+async function callAIAPI(prompt, apiKey) {
   try {
     const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
     const url = `${apiUrl}?key=${apiKey}`;
@@ -563,7 +622,7 @@ async function callAIAPI(prompt,apiKey) {
     }
 
     const data = await response.json();
-    let text = data.candidates[0].content.parts[0].text; // Extracts the text part from the response
+    let text = data.candidates[0].content.parts[0].text;
     cleanedText = cleanAIResponse(text);
     return cleanedText;
   } catch (error) {
@@ -572,11 +631,11 @@ async function callAIAPI(prompt,apiKey) {
   }
 }
 
-function cleanAIResponse(text){
+function cleanAIResponse(text) {
   text = text.replace(/^```.*\n|\n```$/g, '').trim();
   return text.replace(/```/g, '').trim();
 }
-// Modified getApiKey function that returns a promise
+
 function getApiKey() {
   return new Promise((resolve, reject) => {
     chrome.storage.local.get("apiKey", (result) => {
@@ -590,23 +649,23 @@ function getApiKey() {
   });
 }
 
-// Save a message for a specific chat (problemId)
+// API Setup End
+
+// Storage Setup Start
+
 function saveMessage(problemId, message, callback) {
   try {
-    // Get existing messages for the given problemId
-    chrome.storage.local.get(problemId, (result) => {
-      let messages = result[problemId] || []; // If no messages exist, initialize as an empty array
 
-      // Add the new message to the array
+    chrome.storage.local.get(problemId, (result) => {
+      let messages = result[problemId] || [];
+
       messages.push(message);
 
-      // Save the updated messages array
-      const data = { [problemId]: messages }; 
+      const data = { [problemId]: messages };
       chrome.storage.local.set(data, () => {
         if (chrome.runtime.lastError) {
           console.error(`Error saving message: ${chrome.runtime.lastError.message}`);
-        } 
-        // Call the callback function to indicate the save is complete
+        }
         if (callback) callback();
       });
     });
@@ -615,37 +674,39 @@ function saveMessage(problemId, message, callback) {
   }
 }
 
-// Retrieve messages for a specific chat (problemId)
 function getMessages(problemId, callback) {
   try {
     chrome.storage.local.get(problemId, (result) => {
       if (chrome.runtime.lastError) {
         console.error(`Error retrieving message: ${chrome.runtime.lastError.message}`);
-        callback(null); // Pass null to indicate failure
+        callback(null);
       } else {
-        const messages = result[problemId] || []; // Retrieve the messages or return an empty array if not found
-        callback(messages); // Pass the array of messages to the callback
+        const messages = result[problemId] || [];
+        callback(messages);
       }
     });
   } catch (error) {
     console.error(`Caught error while retrieving message: ${error.message}`);
-    callback(null); // Pass null in case of an error
+    callback(null);
   }
 }
 
-// Delete all messages for a specific chat (problemId)
 function deleteChat(problemId) {
   try {
     chrome.storage.local.remove(problemId, () => {
       if (chrome.runtime.lastError) {
         console.error(`Error deleting message: ${chrome.runtime.lastError.message}`);
-      } 
+      }
     });
   } catch (error) {
     console.error(`Caught error while deleting message: ${error.message}`);
   }
 }
-// TODO: 
+
+// Storage Setup End
+
+// Prompt Setup
+
 function generatePrompt(userMessage) {
   return `
     You are a professional programming assistant tasked with helping users solve a specific coding problem. Your responses must stay strictly within the context of the provided problem, using the details and terminology relevant to the problem itself. Do not provide general programming explanations unless they directly relate to the problem's context.
@@ -661,10 +722,10 @@ function generatePrompt(userMessage) {
       - **Output Format:** ${problemDetails.outputFormat}
       - **Constraints:** ${problemDetails.constraints}
       - **Notes:** ${problemDetails.note}
-      - **Example Input/Output:** ${JSON.stringify(problemDetails.samples)}
-      - **User Code:** ${problemDetails.userCode}
-      - **Hints:** ${JSON.stringify(problemDetails.hints)}
-      - **Editorial Code:** ${JSON.stringify(problemDetails.editorialCode)}
+      - **Example Input/Output:** ${JSON.stringify(problemDetails.samples ?? "")}
+      - **User Code:** ${problemDetails.userCode || ""}
+      - **Hints:** ${JSON.stringify(problemDetails.hints ?? {})}
+      - **Editorial Code:** ${JSON.stringify(problemDetails.editorialCode ?? [])}
       - **Last Conversation Context (Up to 5):** ${getLastContext(5)}
 
     User Message: ${userMessage}
@@ -675,24 +736,30 @@ function generatePrompt(userMessage) {
        - Use relevant details from the context and avoid general programming discussions unless they directly apply.
        - Example: If the problem involves trees, provide explanations only about tree-related concepts that are relevant to solving the problem.
 
-    2. **For Greetings or Polite Expressions:**
+    2. **Incorporate User Feedback:**
+       - If feedback from the previous conversation is available, use it to improve your response.
+       - Example Feedback Interpretation:
+         - "User liked your response" → Maintain clarity and provide further useful insights.
+         - "User disliked your response" → Avoid repeating mistakes (e.g., too generic or unhelpful answers) and provide a more precise solution.
+
+    3. **For Greetings or Polite Expressions:**
        - Respond warmly but avoid reiterating the problem details.
        - Example: "Hello! How can I assist you with this problem?" or "You're welcome! Let me know if you have further questions."
 
-    3. **For Problem-Related Questions:**
+    4. **For Problem-Related Questions:**
        - Address the query using specific details from the problem.
        - Avoid generic explanations about topics (like "what is dynamic programming?") unless they directly help solve the problem in context.
        - Use examples or code snippets tailored to the problem where appropriate.
 
-    4. **For Unrelated Questions:**
+    5. **For Unrelated Questions:**
        - Politely inform the user that the query is outside the scope of the current problem.
        - Example: "I'm here to assist with programming questions specifically related to this problem. Could you clarify how your query connects to the problem?"
 
-    5. **Formatting:**
+    6. **Formatting:**
        - Use structured HTML with tags like '<p>' for paragraphs, '<ul>' for lists, and '<pre>' for code snippets.
        - Keep your tone professional, concise, and friendly.
 
-    6. **General Notes:**
+    7. **General Notes:**
        - Avoid introducing unrelated concepts.
        - If the user's question is ambiguous, ask for clarification politely.
 
@@ -714,49 +781,6 @@ function dfs(node) {
   `;
 }
 
-
-window.addEventListener("xhrDataFetched", (event) => {
-  XhrRequestData = event.detail;
-  // Process or send this data to your extension background script
-});
-
-function injectScript() {
-  const script = document.createElement("script");
-  script.src = chrome.runtime.getURL("inject.js");
-  document.documentElement.insertAdjacentElement("afterbegin", script);
-  script.remove(); // Clean up after injecting
-}
-
-function displayMessages(problemId) {
-  // Fetch messages based on the problemId
-  getMessages(problemId, (messages) => {
-    const chatBox = document.getElementById("chatBox");
-
-    // Clear the chatbox before appending new messages
-    chatBox.innerHTML = "";
-
-    // Iterate over the messages and decorate each one
-    messages.forEach((message, index) => {
-      let decoratedMessage = ""
-      if(index%2===0)
-        decoratedMessage = decorateMessage(message,true);
-    else 
-    decoratedMessage = decorateMessage(message,false);
-      // Add the message to the chatbox. Assuming message is either from the user or the bot
-      const messageElement = document.createElement("div");
-      messageElement.innerHTML = decoratedMessage;
-
-      
-
-      chatBox.appendChild(messageElement);
-    });
-
-    // Optionally scroll to the bottom of the chatbox after adding new messages
-    chatBox.scrollTop = chatBox.scrollHeight;
-  });
-}
-
-// TODO : 
 function getLastContext(size) {
   const chatBox = document.getElementById('chatBox');
   const userMessages = Array.from(chatBox.getElementsByClassName('user-message'));
@@ -764,14 +788,77 @@ function getLastContext(size) {
 
   let context = [];
   const messagePairs = Math.min(size, userMessages.length, botMessages.length);
-  console.log(`usermessage : ${userMessages.length} , botmessage: ${botMessages.length}, messagePairs: ${messagePairs}`)
+
   for (let i = 0; i < messagePairs; i++) {
-      const userMessage = userMessages[((userMessages.length)-1-messagePairs+i)]?.innerText || '';
-      const botReply = botMessages[((botMessages.length)-messagePairs+i)]?.innerText || '';
-      context.push(`User question: ${userMessage}\nAI Reply: ${botReply}`);
+    const userMessage = userMessages[userMessages.length - messagePairs + i - 1]?.innerText || '';
+    const botMessageElement = botMessages[botMessages.length - messagePairs + i];
+    const botReply = botMessageElement?.innerText || '';
+
+    let feedback = botMessageElement?.getAttribute('data-feedback') || "0";
+    if (feedback === "1") {
+      feedback = "User liked your response.";
+    } else if (feedback === "-1") {
+      feedback = "User disliked your response.";
+    } else {
+      feedback = "No feedback given.";
+    }
+
+    context.push(`User question: ${userMessage}\nAI Reply: ${botReply}\nFeedback: ${feedback}`);
   }
-  
-  context =  context.join('\n\n'); // Join each message pair with spacing for better readability
   console.log(context)
-  return context
+  return context.join('\n\n');
 }
+
+// Prompt Setup Done
+
+// Injecting XHR Data Start
+window.addEventListener("xhrDataFetched", (event) => {
+  XhrRequestData = event.detail;
+});
+
+function injectScript() {
+  const script = document.createElement("script");
+  script.src = chrome.runtime.getURL("inject.js");
+  document.documentElement.insertAdjacentElement("afterbegin", script);
+  script.remove();
+}
+
+// Injection XHR Data Ends
+
+
+// Feedback Mechanism Logic Start
+
+document.addEventListener('click', (event) => {
+  const target = event.target.closest('.feedback-button');
+  if (!target) return;
+
+  const messageElement = target.closest('.user-message, .bot-message');
+  if (!messageElement) return;
+
+  const isLike = target.classList.contains('like-button');
+  const feedbackValue = isLike ? 1 : -1;
+
+  const likeButton = messageElement.querySelector('.like-button');
+  const dislikeButton = messageElement.querySelector('.dislike-button');
+
+  const currentFeedback = parseInt(messageElement.getAttribute('data-feedback'));
+
+  if (currentFeedback === feedbackValue) {
+
+    messageElement.setAttribute('data-feedback', '0');
+    target.style.color = '#333';
+  } else {
+
+    messageElement.setAttribute('data-feedback', feedbackValue.toString());
+
+    if (isLike) {
+      likeButton.style.color = 'blue';
+      dislikeButton.style.color = '#333';
+    } else {
+      dislikeButton.style.color = 'blue';
+      likeButton.style.color = '#333';
+    }
+  }
+});
+
+// Feedback Mechanism Logic Ends

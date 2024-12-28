@@ -1,4 +1,3 @@
-// DOM elements
 const setupSection = document.getElementById("setup-section");
 const editSection = document.getElementById("edit-section");
 const apiKeyInput = document.getElementById("apiKeyInput");
@@ -7,24 +6,24 @@ const editApiKeyInput = document.getElementById("editApiKeyInput");
 const editApiKeyButton = document.getElementById("editApiKeyButton");
 const saveEditApiKeyButton = document.getElementById("saveEditApiKeyButton");
 
-// Load API key from storage
+
 function loadApiKey() {
   chrome.storage.local.get("apiKey", (result) => {
     const apiKey = result.apiKey;
     if (apiKey) {
-      // Display the current API key
+
       editApiKeyInput.value = apiKey;
       setupSection.style.display = "none";
       editSection.style.display = "block";
     } else {
-      // Prompt user to enter an API key
+
       setupSection.style.display = "block";
       editSection.style.display = "none";
     }
   });
 }
 
-// Save the API key to storage
+
 saveApiKeyButton.addEventListener("click", () => {
   const apiKey = apiKeyInput.value.trim();
   if (!apiKey) {
@@ -38,14 +37,14 @@ saveApiKeyButton.addEventListener("click", () => {
   });
 });
 
-// Enable editing of the API key
+
 editApiKeyButton.addEventListener("click", () => {
   editApiKeyInput.readOnly = false;
   saveEditApiKeyButton.style.display = "block";
   editApiKeyButton.style.display = "none";
 });
 
-// Save the edited API key
+
 saveEditApiKeyButton.addEventListener("click", () => {
   const newApiKey = editApiKeyInput.value.trim();
   if (!newApiKey) {
@@ -61,5 +60,4 @@ saveEditApiKeyButton.addEventListener("click", () => {
   });
 });
 
-// Load the API key on page load
 loadApiKey();

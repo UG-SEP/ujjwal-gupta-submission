@@ -31,3 +31,7 @@ body {
     cursor: not-allowed;
   }
   
+#editApiKeyButton{
+  background-color: rgba(255, 255, 0, 0.904);
+  color: black;
+}

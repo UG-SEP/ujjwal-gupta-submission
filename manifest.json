@@ -30,9 +30,9 @@
     ],
     "action": {
       "default_icon": {
-        "16": "assests/logo.jpg",
-        "24": "assests/logo.jpg",
-        "32": "assests/logo.jpg"
+        "16": "assets/icon.png",
+        "24": "assets/icon.png",
+        "32": "assets/icon.png"
       },
       "default_popup": "index.html",
       "default_title": "AZ Chat Bot"
