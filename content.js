@@ -374,7 +374,8 @@ async function exportChat() {
     let formattedMessages = [];
 
     messages.forEach((message) => {
-      const messageText = message.parts[0]?.text;
+      let messageText = message.parts[0]?.text;
+      messageText = messageText.replace(/<\/?[^>]+(>|$)/g, "");
       if (messageText) {
         if (message.role === "user") {
 
