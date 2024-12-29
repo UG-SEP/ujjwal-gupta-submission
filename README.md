@@ -20,6 +20,7 @@ response of the particular problem response**
 
 ### 🔑 Personalization
 - **Custom API Key Support**: Integrate your own API key to tailor the chatbot's behavior and enhance privacy.
+- **Problem Details Information**: The Chatbot already have the access of the problem title, description, score, time limit, space limit, score, input format, output format, note, samples examples, user's code, hints, editorial code
 
 ### 🧠 AI-Driven Assistance
 - **Scoped AI Training**: Focused exclusively on solving specific problems, ensuring responses stay relevant and on-point.
