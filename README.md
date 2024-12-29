@@ -5,7 +5,10 @@ The AlgoZenith Chat Bot Chrome Extension revolutionizes how you interact with AI
 ---
 
 ## Demo Video
-You can download the ![Project Demo](project-demo.mp4) video to view. As the file is of 30 mb. Github cannot load it.
+You can download the ![Project Demo](project-demo.mp4) video to view. As the file is of 30 mb. Github cannot load it. 
+
+**Sorry forgot to mention in the video that it is supportable in both dark and light mode of AlgoZenith site and it is tailored to give 
+response of the particular problem response**
 
 ---
 
@@ -17,7 +20,6 @@ You can download the ![Project Demo](project-demo.mp4) video to view. As the fil
 
 ### 🔑 Personalization
 - **Custom API Key Support**: Integrate your own API key to tailor the chatbot's behavior and enhance privacy.
-- **Feedback Mechanism**: Provide real-time feedback (like/dislike) on AI responses to continuously improve accuracy and relevance.
 
 ### 🧠 AI-Driven Assistance
 - **Scoped AI Training**: Focused exclusively on solving specific problems, ensuring responses stay relevant and on-point.
@@ -33,6 +35,7 @@ You can download the ![Project Demo](project-demo.mp4) video to view. As the fil
 ### 🎤 Accessibility and Usability
 - **Voice Messaging**: Speak your messages instead of typing for a hands-free experience.
 - **Audio Responses**: Listen to AI-generated responses, offering convenience and accessibility.
+- **Copy Response to Clipboard**: Copy the response of the Bot to your Clipboard.
 
 ### 🚀 Reliability and Efficiency
 - **Effective Error Handling**: Smoothly manages unexpected issues to ensure uninterrupted interaction.
@@ -50,9 +53,9 @@ You can download the ![Project Demo](project-demo.mp4) video to view. As the fil
 
 ## Installation
 
-1. Download the extension from the Chrome Web Store (or manually install it from the provided zip file).
-2. Follow the installation instructions and grant the necessary permissions.
-3. Launch the AlgoZenith Chat Bot by clicking on its icon in your Chrome toolbar.
+1. Download the repo in zip
+2. Unload it in chrome://extension while keeping developer mode on.
+3. Launch the AlgoZenith Site.
 
 ---
 
@@ -65,18 +68,8 @@ You can download the ![Project Demo](project-demo.mp4) video to view. As the fil
 
 ---
 
-
-
 ## Contributing
 
 We welcome contributions! Whether it's suggesting new features, reporting bugs, or enhancing the code, feel free to open a pull request or create an issue.
 
 ---
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
-
----
-
-Take your problem-solving to the next level with AlgoZenith Chat Bot Chrome Extension!
