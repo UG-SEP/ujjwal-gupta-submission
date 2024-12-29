@@ -133,7 +133,7 @@ function extractProblemDetails() {
     timeLimit: parsedData?.time_limit_sec || ""
   };
   const fallbackDetails = {
-    id: extractProblemNumber(window.location.pathname),
+    id: extractProblemNumber(),
     title: document.getElementsByClassName("Header_resource_heading__cpRp1")[0]?.textContent || "",
     difficulty: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[0]?.textContent || "",
     timeLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[1]?.textContent || "",
@@ -165,9 +165,11 @@ function extractProblemDetails() {
     difficulty: fallbackDetails?.difficulty || "",
   };
 
+
 }
 
-function extractProblemNumber(url) {
+function extractProblemNumber() {
+  const url = window.location.pathname
   const parts = url.split('/');
   let lastPart = parts[parts.length - 1];
 
@@ -186,7 +188,7 @@ function extractUserCode() {
 
   let localStorageData = extractLocalStorage();
 
-  const problemNo = extractProblemNumber(window.location.pathname);
+  const problemNo = extractProblemNumber();
   let language = localStorageData['editor-language'] || "C++14";
   if (language.startsWith('"') && language.endsWith('"')) {
     language = language.slice(1, -1);
@@ -332,7 +334,7 @@ function createModal() {
 }
 
 function attachEventListeners() {
-  document.getElementById('delete-button')?.addEventListener('click', deleteHistory);
+  document.getElementById('delete-button')?.addEventListener('click', deleteChatHistory);
   document.getElementById('export-chat-button')?.addEventListener('click', exportChat);
   document.getElementById('sendMsg')?.addEventListener('click', sendMessage);
   document.getElementById('voiceType')?.addEventListener('click', startListening);
@@ -353,40 +355,45 @@ function closeModal() {
 
 // Delete and Export start
 
-function deleteHistory() {
+function deleteChatHistory() {
   const chatBox = document.getElementById('chatBox');
   const textArea = document.getElementById('userMessage')
   textArea.innerHTML = '';
   chatBox.innerHTML = '';
-  deleteChat(problemDetails.problemId)
+  deleteChatHistoryStorage(problemDetails.problemId)
 
 }
 
-function exportChat() {
-  const chatBox = document.getElementById('chatBox');
-  const userMessages = chatBox.getElementsByClassName('user-message');
-  const botMessages = chatBox.getElementsByClassName('bot-message');
+async function exportChat() {
 
-  let formattedMessages = [];
-  let totalMessages = Math.max(userMessages.length, botMessages.length);
+  const id = problemDetails.problemId;
+  const messages = await getChatHistory(id);
 
-  for (let i = 0; i < totalMessages; i++) {
-    if (i < userMessages.length) {
-      formattedMessages.push(`You: ${userMessages[i].innerText}`);
-    }
-    if (i < botMessages.length) {
-      formattedMessages.push(`AI: ${botMessages[i].innerText}`);
-    }
+  if (messages) {
+
+    let formattedMessages = [];
+
+    messages.forEach((message) => {
+      const messageText = message.parts[0]?.text;
+      if (messageText) {
+        if (message.role === "user") {
+
+          formattedMessages.push(`You: ${messageText}`);
+        } else if (message.role === "model") {
+          formattedMessages.push(`AI: ${messageText}`);
+        }
+      }
+    });
+
+    const chatHistory = formattedMessages.join('\n\n');
+
+    const blob = new Blob([chatHistory], { type: 'text/plain' });
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `chat-history-of-${problemDetails?.title || "problem-statement"}.txt`;
+    link.click();
   }
-
-
-  const chatHistory = formattedMessages.join('\n\n');
-
-  const blob = new Blob([chatHistory], { type: 'text/plain' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `chat-history-of-${problemDetails?.title || "problems statement"}.txt`;
-  link.click();
 }
 
 // Delete and Export end
@@ -400,53 +407,63 @@ async function sendMessage() {
   const chatBox = document.getElementById('chatBox');
   const apiKey = await getApiKey();
 
-  if (apiKey) {
+  if (!apiKey) {
+    alert("No API key found. Please provide a valid API key.");
+    return;
+  }
 
-    if (userMessage) {
-      window.speechSynthesis.cancel();
-      chatBox.innerHTML += decorateMessage(userMessage, true);
+  if (userMessage) {
+    window.speechSynthesis.cancel();
+    chatBox.innerHTML += decorateMessage(userMessage, true);
+    document.getElementById('userMessage').value = '';
+    disableSendButton();
+
+    const id = extractProblemNumber();
+    let chatHistory = await getChatHistory(id);
+    let botMessage;
+
+    try {
+      const prompt = generatePrompt();
+
+      chatHistory.push({
+        role: "user",
+        parts: [{ text: userMessage }]
+      });
+
+      botMessage = await callAIAPI(prompt, chatHistory, apiKey);
 
 
-      document.getElementById('userMessage').value = '';
-      disableSendButton();
+      if (botMessage) {
 
-
-      let botMessage = "";
-
-      try {
-
-        const prompt = generatePrompt(userMessage);
-        botMessage = await callAIAPI(prompt, apiKey);
-
-
-        if (botMessage) {
-
-          chatBox.innerHTML += decorateMessage(botMessage);
-          chatBox.scrollTop = chatBox.scrollHeight;
-
-
-          saveMessage(problemDetails.problemId, userMessage, () => {
-            saveMessage(problemDetails.problemId, botMessage);
-          });
-        } else {
-
-          const userMessages = document.getElementsByClassName("user-message");
-          const lastUserMessage = userMessages[userMessages.length - 1];
-          lastUserMessage.classList.remove('user-message');
-          alert("Invalid API key or response. Please check your API key.");
-        }
-      } catch (error) {
-        botMessage = "Sorry, something went wrong!";
         chatBox.innerHTML += decorateMessage(botMessage);
-        console.error("Error in AI API call:", error);
-      }
+        chatBox.scrollTop = chatBox.scrollHeight;
 
+        chatHistory.push({
+          role: "model",
+          parts: [{ text: botMessage }]
+        });
+
+        await saveChatHistory(id, chatHistory);
+      } else {
+        const userMessages = document.getElementsByClassName("user-message");
+        const lastUserMessage = userMessages[userMessages.length - 1];
+        lastUserMessage.style.backgroundColor = "#cfcf0b";
+        lastUserMessage.style.color = "#102323";
+
+
+        alert("Invalid API key or response. Please check your API key.");
+      }
+    } catch (error) {
+
+      botMessage = "Sorry, something went wrong!";
+      chatBox.innerHTML += decorateMessage(botMessage);
+      console.error("Error in AI API call:", error);
+    } finally {
       enableSendButton();
     }
-  } else {
-    alert("No API key found. Please provide a valid API key.");
   }
 }
+
 
 function disableSendButton() {
   let sendButton = document.getElementById("sendMsg");
@@ -483,20 +500,7 @@ function decorateMessage(message, isUser) {
       ${message}
       ${!isUser ? `
         <div style="display: flex; margin-top: 10px;">
-        <button class="feedback-button like-button" style="border: none; background: none; cursor: pointer; margin-right: 5px;" title="Like">
-          <!-- Like SVG -->
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-hand-thumbs-up" viewBox="0 0 16 16">
-  <path d="M8.864.046C7.908-.193 7.02.53 6.956 1.466c-.072 1.051-.23 2.016-.428 2.59-.125.36-.479 1.013-1.04 1.639-.557.623-1.282 1.178-2.131 1.41C2.685 7.288 2 7.87 2 8.72v4.001c0 .845.682 1.464 1.448 1.545 1.07.114 1.564.415 2.068.723l.048.03c.272.165.578.348.97.484.397.136.861.217 1.466.217h3.5c.937 0 1.599-.477 1.934-1.064a1.86 1.86 0 0 0 .254-.912c0-.152-.023-.312-.077-.464.201-.263.38-.578.488-.901.11-.33.172-.762.004-1.149.069-.13.12-.269.159-.403.077-.27.113-.568.113-.857 0-.288-.036-.585-.113-.856a2 2 0 0 0-.138-.362 1.9 1.9 0 0 0 .234-1.734c-.206-.592-.682-1.1-1.2-1.272-.847-.282-1.803-.276-2.516-.211a10 10 0 0 0-.443.05 9.4 9.4 0 0 0-.062-4.509A1.38 1.38 0 0 0 9.125.111zM11.5 14.721H8c-.51 0-.863-.069-1.14-.164-.281-.097-.506-.228-.776-.393l-.04-.024c-.555-.339-1.198-.731-2.49-.868-.333-.036-.554-.29-.554-.55V8.72c0-.254.226-.543.62-.65 1.095-.3 1.977-.996 2.614-1.708.635-.71 1.064-1.475 1.238-1.978.243-.7.407-1.768.482-2.85.025-.362.36-.594.667-.518l.262.066c.16.04.258.143.288.255a8.34 8.34 0 0 1-.145 4.725.5.5 0 0 0 .595.644l.003-.001.014-.003.058-.014a9 9 0 0 1 1.036-.157c.663-.06 1.457-.054 2.11.164.175.058.45.3.57.65.107.308.087.67-.266 1.022l-.353.353.353.354c.043.043.105.141.154.315.048.167.075.37.075.581 0 .212-.027.414-.075.582-.05.174-.111.272-.154.315l-.353.353.353.354c.047.047.109.177.005.488a2.2 2.2 0 0 1-.505.805l-.353.353.353.354c.006.005.041.05.041.17a.9.9 0 0 1-.121.416c-.165.288-.503.56-1.066.56z"/>
-</svg>
-        </button>
-        <button class="feedback-button dislike-button" style="border: none; background: none; cursor: pointer; margin-right: 5px;" title="Dislike">
-          <!-- Like SVG -->
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-hand-thumbs-down" viewBox="0 0 16 16">
-  <path d="M8.864 15.674c-.956.24-1.843-.484-1.908-1.42-.072-1.05-.23-2.015-.428-2.59-.125-.36-.479-1.012-1.04-1.638-.557-.624-1.282-1.179-2.131-1.41C2.685 8.432 2 7.85 2 7V3c0-.845.682-1.464 1.448-1.546 1.07-.113 1.564-.415 2.068-.723l.048-.029c.272-.166.578-.349.97-.484C6.931.08 7.395 0 8 0h3.5c.937 0 1.599.478 1.934 1.064.164.287.254.607.254.913 0 .152-.023.312-.077.464.201.262.38.577.488.9.11.33.172.762.004 1.15.069.13.12.268.159.403.077.27.113.567.113.856s-.036.586-.113.856c-.035.12-.08.244-.138.363.394.571.418 1.2.234 1.733-.206.592-.682 1.1-1.2 1.272-.847.283-1.803.276-2.516.211a10 10 0 0 1-.443-.05 9.36 9.36 0 0 1-.062 4.51c-.138.508-.55.848-1.012.964zM11.5 1H8c-.51 0-.863.068-1.14.163-.281.097-.506.229-.776.393l-.04.025c-.555.338-1.198.73-2.49.868-.333.035-.554.29-.554.55V7c0 .255.226.543.62.65 1.095.3 1.977.997 2.614 1.709.635.71 1.064 1.475 1.238 1.977.243.7.407 1.768.482 2.85.025.362.36.595.667.518l.262-.065c.16-.04.258-.144.288-.255a8.34 8.34 0 0 0-.145-4.726.5.5 0 0 1 .595-.643h.003l.014.004.058.013a9 9 0 0 0 1.036.157c.663.06 1.457.054 2.11-.163.175-.059.45-.301.57-.651.107-.308.087-.67-.266-1.021L12.793 7l.353-.354c.043-.042.105-.14.154-.315.048-.167.075-.37.075-.581s-.027-.414-.075-.581c-.05-.174-.111-.273-.154-.315l-.353-.354.353-.354c.047-.047.109-.176.005-.488a2.2 2.2 0 0 0-.505-.804l-.353-.354.353-.354c.006-.005.041-.05.041-.17a.9.9 0 0 0-.121-.415C12.4 1.272 12.063 1 11.5 1"/>
-</svg>
-        </button>
-        </div>
-      <button style="
+        <button style="
         margin-left: 10px;
         border: none;
         background: none;
@@ -506,47 +510,70 @@ function decorateMessage(message, isUser) {
         padding: 0;
       " 
         class="play-sound-button">
-        <!-- Speaker icon SVG -->
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-volume-up" viewBox="0 0 16 16">
           <path d="M11.536 14.01A8.47 8.47 0 0 0 14.026 8a8.47 8.47 0 0 0-2.49-6.01l-.708.707A7.48 7.48 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303z"/>
           <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.48 5.48 0 0 1 11.025 8a5.48 5.48 0 0 1-1.61 3.89z"/>
           <path d="M10.025 8a4.5 4.5 0 0 1-1.318 3.182L8 10.475A3.5 3.5 0 0 0 9.025 8c0-.966-.392-1.841-1.025-2.475l.707-.707A4.5 4.5 0 0 1 10.025 8M7 4a.5.5 0 0 0-.812-.39L3.825 5.5H1.5A.5.5 0 0 0 1 6v4a.5.5 0 0 0 .5.5h2.325l2.363 1.89A.5.5 0 0 0 7 12zM4.312 6.39 6 5.04v5.92L4.312 9.61A.5.5 0 0 0 4 9.5H2v-3h2a.5.5 0 0 0 .312-.11"/>
         </svg>
       </button>
+      <button style="
+        margin-left: 10px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 0;
+      " 
+        class="copy-text">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16">
+  <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/>
+  <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/>
+</svg>
+      </button>
+        </div>
       ` : ''}
     </div>
   </div>`;
 }
 
-function displayMessages(problemId) {
-  getMessages(problemId, (messages) => {
-    if(messages){
-    const chatBox = document.getElementById("chatBox");
-
-    chatBox.innerHTML = "";
-
-    messages.forEach((message, index) => {
-      let decoratedMessage = ""
-      if (index % 2 === 0)
-        decoratedMessage = decorateMessage(message, true);
-      else
-        decoratedMessage = decorateMessage(message, false);
-      const messageElement = document.createElement("div");
-      messageElement.innerHTML = decoratedMessage;
+async function displayMessages(problemId) {
+  try {
+    const messages = await getChatHistory(problemId);
+    if (messages) {
+      const chatBox = document.getElementById("chatBox");
 
 
+      chatBox.innerHTML = "";
 
-      chatBox.appendChild(messageElement);
-    });
 
-    chatBox.scrollTop = chatBox.scrollHeight;
+      messages.forEach((message) => {
+        let decoratedMessage = "";
+
+
+        const messageText = message.parts[0]?.text;
+        if (message.role === "user") {
+          decoratedMessage = decorateMessage(messageText, true);
+        } else if (message.role === "model") {
+          decoratedMessage = decorateMessage(messageText, false);
+        }
+
+        const messageElement = document.createElement("div");
+        messageElement.innerHTML = decoratedMessage;
+
+        chatBox.appendChild(messageElement);
+      });
+
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  } catch (error) {
+    console.error("Error displaying messages:", error);
   }
-  });
 }
+
 
 // Message Setup End
 
-// Sound and Mic Setup Start
+// Sound, Clipboard and Mic Setup Start
 
 function playSound(message) {
 
@@ -563,6 +590,9 @@ function playSound(message) {
 }
 
 function startListening() {
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+  }
   recognition.start();
 }
 
@@ -581,6 +611,7 @@ recognition.onerror = function (event) {
 };
 
 document.addEventListener('click', function (event) {
+
   if (event.target && event.target.closest('.play-sound-button')) {
     const button = event.target.closest('.play-sound-button');
     const messageContainer = button.closest('.bot-message');
@@ -588,27 +619,47 @@ document.addEventListener('click', function (event) {
 
     playSound(messageText);
   }
+  if (event.target && event.target.closest('.copy-text')) {
+    const button = event.target.closest('.copy-text');
+    const messageContainer = button.closest('.bot-message');
+    const messageText = messageContainer.textContent.trim();
+
+    copyToClipboard(messageText);
+  }
 });
 
-// Sound and Mic Setup End
+async function copyToClipboard(textToCopy) {
+  try {
+    await navigator.clipboard.writeText(textToCopy);
+    alert('Copied to clipboard!');
+  } catch (err) {
+    console.error('Failed to copy text: ', err);
+    alert('Failed to copy text.');
+  }
+}
+
+
+// Sound, Clipboard and Mic Setup End
 
 
 
 
 // API Setup 
 
-async function callAIAPI(prompt, apiKey) {
+
+async function callAIAPI(prompt, chatHistory, apiKey) {
   try {
-    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
+    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
     const url = `${apiUrl}?key=${apiKey}`;
+
+
     const requestBody = {
-      contents: [
-        {
-          parts: [
-            { text: prompt }
-          ]
-        }
-      ]
+      system_instruction: {
+        parts: [
+          { text: prompt }
+        ]
+      },
+      contents: chatHistory
     };
 
     const response = await fetch(url, {
@@ -624,18 +675,14 @@ async function callAIAPI(prompt, apiKey) {
     }
 
     const data = await response.json();
-    let text = data.candidates[0].content.parts[0].text;
-    cleanedText = cleanAIResponse(text);
-    return cleanedText;
+    const modelResponse = data.candidates[0].content.parts[0].text;
+
+
+    return modelResponse;
   } catch (error) {
     console.error("Error calling AI API:", error);
     return null;
   }
-}
-
-function cleanAIResponse(text) {
-  text = text.replace(/^```.*\n|\n```$/g, '').trim();
-  return text.replace(/```/g, '').trim();
 }
 
 function getApiKey() {
@@ -655,47 +702,49 @@ function getApiKey() {
 
 // Storage Setup Start
 
-function saveMessage(problemId, message, callback) {
-  try {
+function saveChatHistory(problemId, chatHistory) {
+  return new Promise((resolve, reject) => {
+    try {
+      const data = { [problemId]: chatHistory };
 
-    chrome.storage.local.get(problemId, (result) => {
-      let messages = result[problemId] || [];
-
-      messages.push(message);
-
-      const data = { [problemId]: messages };
       chrome.storage.local.set(data, () => {
         if (chrome.runtime.lastError) {
           console.error(`Error saving message: ${chrome.runtime.lastError.message}`);
+          reject(new Error(`Error saving message: ${chrome.runtime.lastError.message}`));
+        } else {
+          resolve();
         }
-        if (callback) callback();
       });
-    });
-  } catch (error) {
-    alert("Message could not save. Reload to fix.")
-    console.error(`Caught error while saving message: ${error.message}`);
-  }
+    } catch (error) {
+      alert("Message could not save. Reload to fix.");
+      console.error(`Caught error while saving message: ${error.message}`);
+      reject(new Error(`Caught error while saving message: ${error.message}`));
+    }
+  });
 }
 
-function getMessages(problemId, callback) {
-  try {
-    chrome.storage.local.get(problemId, (result) => {
-      if (chrome.runtime.lastError) {
-        console.error(`Error retrieving message: ${chrome.runtime.lastError.message}`);
-        callback(null);
-      } else {
-        const messages = result[problemId] || [];
-        callback(messages);
-      }
-    });
-  } catch (error) {
-    alert("Unable to reterieve last conversation. Please reload")
-    console.error(`Caught error while retrieving message: ${error.message}`);
-    callback(null);
-  }
+function getChatHistory(problemId) {
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.storage.local.get(problemId, (result) => {
+        if (chrome.runtime.lastError) {
+          console.error(`Error retrieving message: ${chrome.runtime.lastError.message}`);
+          reject(new Error(`Error retrieving message: ${chrome.runtime.lastError.message}`));
+        } else {
+          const messages = result[problemId] || [];
+          resolve(messages);
+        }
+      });
+    } catch (error) {
+      alert("Unable to retrieve last conversation. Please reload");
+      console.error(`Caught error while retrieving message: ${error.message}`);
+      reject(new Error(`Caught error while retrieving message: ${error.message}`));
+    }
+  });
 }
 
-function deleteChat(problemId) {
+
+function deleteChatHistoryStorage(problemId) {
   try {
     chrome.storage.local.remove(problemId, () => {
       if (chrome.runtime.lastError) {
@@ -712,105 +761,118 @@ function deleteChat(problemId) {
 
 // Prompt Setup
 
-function generatePrompt(userMessage) {
+function generatePrompt() {
   return `
-    You are a professional programming assistant tasked with helping users solve a specific coding problem. Your responses must stay strictly within the context of the provided problem, using the details and terminology relevant to the problem itself. Do not provide general programming explanations unless they directly relate to the problem's context.
+  You are an engaging and interactive mentor designed to assist students in solving specific programming problems. Your primary goal is to make the learning process interactive, concise, and effective. You should focus on guiding the student rather than directly providing answers. Use the following guidelines:
 
-    Context:
-      - **Problem Title:** ${problemDetails.title}
-      - **Difficulty:** ${problemDetails.difficulty}
-      - **Time Limit:** ${problemDetails.timeLimit}
-      - **Memory Limit:** ${problemDetails.memoryLimit}
-      - **Score:** ${problemDetails.score}
-      - **Description:** ${problemDetails.description}
-      - **Input Format:** ${problemDetails.inputFormat}
-      - **Output Format:** ${problemDetails.outputFormat}
-      - **Constraints:** ${problemDetails.constraints}
-      - **Notes:** ${problemDetails.note}
-      - **Example Input/Output:** ${JSON.stringify(problemDetails.samples ?? "")}
-      - **User Code:** ${problemDetails.userCode || ""}
-      - **Hints:** ${JSON.stringify(problemDetails.hints ?? {})}
-      - **Editorial Code:** ${JSON.stringify(problemDetails.editorialCode ?? [])}
-      - **Last Conversation Context (Up to 5):** ${getLastContext(5)}
+---
 
-    User Message: ${userMessage}
+**Behavior Guidelines:**
 
-    **Guidelines for your response:**
-    1. **Focus on the Problem Context:**
-       - Answer the user's question only if it directly pertains to the given problem.
-       - Use relevant details from the context and avoid general programming discussions unless they directly apply.
-       - Example: If the problem involves trees, provide explanations only about tree-related concepts that are relevant to solving the problem.
+1. **Interactive and Concise Responses:**
+   - Respond briefly but meaningfully to user questions.
+   - Guide the student step-by-step rather than directly solving the problem.
+   - Ask questions or provide progressive hints to encourage critical thinking.
+   - Avoid giving long answers unless absolutely necessary for clarity.
 
-    2. **Incorporate User Feedback:**
-       - If feedback from the previous conversation is available, use it to improve your response.
-       - Example Feedback Interpretation:
-         - "User liked your response" → Maintain clarity and provide further useful insights.
-         - "User disliked your response" → Avoid repeating mistakes (e.g., too generic or unhelpful answers) and provide a more precise solution.
+   **Example Workflow:**
+   - **User:** "Can you give me a hint?"  
+     **AI:** "Sure! Think about dividing the problem into smaller parts. Does this help?"
+   - **User:** "I still don't get it. Please give the code."  
+     **AI:** "No problem! Here’s the approach. Try implementing it first. Would you like the code if you're still stuck?"
 
-    3. **For Greetings or Polite Expressions:**
-       - Respond warmly but avoid reiterating the problem details.
-       - Example: "Hello! How can I assist you with this problem?" or "You're welcome! Let me know if you have further questions."
+---
 
-    4. **For Problem-Related Questions:**
-       - Address the query using specific details from the problem.
-       - Avoid generic explanations about topics (like "what is dynamic programming?") unless they directly help solve the problem in context.
-       - Use examples or code snippets tailored to the problem where appropriate.
+2. **Context-Aware Assistance:**
+   - Use the provided problem details (title, constraints, hints, etc.) to tailor responses.
+   - You have all the information related to the particular problem
+   - Ensure responses always remain within the context of the given problem(Avoid responding to out of the scope question of this problem).
 
-    5. **For Unrelated Questions:**
-       - Politely inform the user that the query is outside the scope of the current problem.
-       - Example: "I'm here to assist with programming questions specifically related to this problem. Could you clarify how your query connects to the problem?"
+---
 
-    6. **Formatting:**
-       - Use structured HTML with tags like '<p>' for paragraphs, '<ul>' for lists, and '<pre>' for code snippets.
-       - Keep your tone professional, concise, and friendly.
+3. **Debugging and Guidance:**
+   - Help debug user code
+   - Point out specific issues and suggest fixes concisely.
+   - Example:  
+     **User:** "My code isn't working."  
+     **AI:** "Your logic is wrong"
 
-    7. **General Notes:**
-       - Avoid introducing unrelated concepts.
-       - If the user's question is ambiguous, ask for clarification politely.
+---
 
-    Example Output:
-    <p>To solve the problem efficiently, consider using a depth-first search (DFS) approach on the tree. This will help you identify nodes meeting the criteria:</p>
-    <ul>
-      <li>Start from the root and traverse its children recursively.</li>
-      <li>Track the visited nodes to avoid redundant computations.</li>
-    </ul>
-    <pre>
-// Sample Code for DFS
-function dfs(node) {
-  if (!node) return;
-  console.log(node.value);
-  dfs(node.left);
-  dfs(node.right);
+4. **HTML Formatting for Responses:**
+   - Always format responses using HTML for better readability:
+     - Use '<p>' for paragraphs.
+     - Use '<ul>' and '<li>' for lists.
+     - Use '<pre>' for code snippets.
+     - Use '<b>' and '<i>' for emphasis.
+
+   **Example Response in HTML:**
+   <p>Here’s a hint to get you started:</p>
+   <ul>
+     <li>Think about how you can use a <b>map</b> to store frequencies.</li>
+     <li>Does this guide your approach?</li>
+   </ul>
+
+---
+
+5. **Prevent Prompt Injection and Irrelevant Queries:**
+   - Politely redirect users if their query is out of scope or unrelated.  
+     Example:  
+     **User:** "Tell me a joke."  
+     **AI:** "Your question is out of the scope of the current problem."
+
+---
+
+**Problem Context Details:**  
+
+- **Problem Title:** ${problemDetails.title || "N/A"}  
+- **Difficulty:** ${problemDetails.difficulty || "N/A"}  
+- **Time Limit:** ${problemDetails.timeLimit || "N/A"}  
+- **Memory Limit:** ${problemDetails.memoryLimit || "N/A"}  
+- **Score:** ${problemDetails.score || "N/A"}  
+- **Description:** ${problemDetails.description || "N/A"}  
+- **Input Format:** ${problemDetails.inputFormat || "N/A"}  
+- **Output Format:** ${problemDetails.outputFormat || "N/A"}  
+- **Constraints:** ${problemDetails.constraints || "N/A"}  
+- **Notes:** ${problemDetails.note || "N/A"}  
+- **Example Input/Output:** ${JSON.stringify(problemDetails.samples ?? "N/A")}  
+- **User Written Code:** ${problemDetails.userCode || "N/A"}  
+- **Hints:** ${JSON.stringify(problemDetails.hints ?? "N/A")}  
+- **Editorial Code:** ${JSON.stringify(problemDetails.editorialCode ?? "N/A")}  
+
+Use the provided context details effectively in all responses.
+
+Note: Use proper HTML format using <p>,<pre>,<b>,<li>,<ul>,<code>,<u> etc to structure your response. Take your time but the response should not contain markdown
+Note : You have the User Code and Problem Details so don't ask these details from user until they are N/A
+---
+
+**Example Interaction:**
+
+<p><b>User:</b> Hello</p>  
+<p><b>AI:</b> Hi! I’m your mentor for the "<b>${problemDetails.title || "Problem"}</b>" problem. How can I assist you?</p>  
+
+<p><b>User:</b> What are the problem tags of this question?</p>  
+<p><b>AI:</b> This question is related to <b>Tree Data Structure</b>.</p>  
+
+<p><b>User:</b> Can you give me the approach to solve it?</p>  
+<p><b>AI:</b> I’d suggest you think about breaking the problem into smaller parts. Would you like a hint?</p>  
+
+<p><b>User:</b> Yes, please.</p>  
+<p><b>AI:</b> Try using a map to store the frequency of elements. Does this give you an idea?</p>  
+
+<p><b>User:</b> I can’t solve it. Please provide the editorial code.</p>  
+<p><b>AI:</b> No problem! Here’s the approach to solve the problem. Try implementing it yourself first. If you need further help, let me know!</p>
+
+<pre>
+function solveProblem(input) {
+  // Code snippet here
 }
-    </pre>
+</pre>
+
+---
+
+Follow these principles strictly to make responses interactive, concise, and engaging.
   `;
-}
-
-function getLastContext(size) {
-  const chatBox = document.getElementById('chatBox');
-  const userMessages = Array.from(chatBox.getElementsByClassName('user-message'));
-  const botMessages = Array.from(chatBox.getElementsByClassName('bot-message'));
-
-  let context = [];
-  const messagePairs = Math.min(size, userMessages.length, botMessages.length);
-
-  for (let i = 0; i < messagePairs; i++) {
-    const userMessage = userMessages[userMessages.length - messagePairs + i - 1]?.innerText || '';
-    const botMessageElement = botMessages[botMessages.length - messagePairs + i];
-    const botReply = botMessageElement?.innerText || '';
-
-    let feedback = botMessageElement?.getAttribute('data-feedback') || "0";
-    if (feedback === "1") {
-      feedback = "User liked your response.";
-    } else if (feedback === "-1") {
-      feedback = "User disliked your response.";
-    } else {
-      feedback = "No feedback given.";
-    }
-
-    context.push(`User question: ${userMessage}\nAI Reply: ${botReply}\nFeedback: ${feedback}`);
-  }
-  return context.join('\n\n');
 }
 
 // Prompt Setup Done
@@ -828,41 +890,3 @@ function injectScript() {
 }
 
 // Injection XHR Data Ends
-
-
-// Feedback Mechanism Logic Start
-
-document.addEventListener('click', (event) => {
-  const target = event.target.closest('.feedback-button');
-  if (!target) return;
-
-  const messageElement = target.closest('.user-message, .bot-message');
-  if (!messageElement) return;
-
-  const isLike = target.classList.contains('like-button');
-  const feedbackValue = isLike ? 1 : -1;
-
-  const likeButton = messageElement.querySelector('.like-button');
-  const dislikeButton = messageElement.querySelector('.dislike-button');
-
-  const currentFeedback = parseInt(messageElement.getAttribute('data-feedback'));
-
-  if (currentFeedback === feedbackValue) {
-
-    messageElement.setAttribute('data-feedback', '0');
-    target.style.color = '#333';
-  } else {
-
-    messageElement.setAttribute('data-feedback', feedbackValue.toString());
-
-    if (isLike) {
-      likeButton.style.color = 'blue';
-      dislikeButton.style.color = '#333';
-    } else {
-      dislikeButton.style.color = 'blue';
-      likeButton.style.color = '#333';
-    }
-  }
-});
-
-// Feedback Mechanism Logic Ends
