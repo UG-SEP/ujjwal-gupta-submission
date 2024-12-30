@@ -14,7 +14,8 @@
           "https://maang.in/*"
         ],
         "js": [
-          "content.js"
+          "content.js",
+          "marked.min.js"
           
         ]
       }

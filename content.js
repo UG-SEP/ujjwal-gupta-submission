@@ -38,9 +38,10 @@ function isProblemsPage() {
 
 const observer = new MutationObserver((mutations) => {
   mutations.forEach((mutation) => {
+    injectScript();
     if (mutation.type === "childList" && isProblemsPage()) {
       if (isUrlChanged() || !document.getElementById("help-button")) {
-        injectScript();
+       
         if (areRequiredElementsLoaded()) {
           cleanElements();
           createElement();
@@ -126,19 +127,13 @@ function extractProblemDetails() {
     hints: parsedData?.hints || {},
     id: (parsedData?.id).toString() || "",
     inputFormat: parsedData?.input_format || "",
-    memoryLimit: parsedData?.memory_limit_mb || "",
     note: parsedData?.note || "",
     outputFormat: parsedData?.output_format || "",
     samples: parsedData?.samples || [],
-    timeLimit: parsedData?.time_limit_sec || ""
   };
   const fallbackDetails = {
     id: extractProblemNumber(),
     title: document.getElementsByClassName("Header_resource_heading__cpRp1")[0]?.textContent || "",
-    difficulty: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[0]?.textContent || "",
-    timeLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[1]?.textContent || "",
-    memoryLimit: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[2]?.textContent || "",
-    score: document.getElementsByClassName("m-0 fs-6 problem_paragraph fw-bold")[3]?.textContent || "",
     description: document.getElementsByClassName("coding_desc__pltWY")[0]?.textContent || "",
     inputFormat: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[0]?.textContent || "",
     outputFormat: document.getElementsByClassName("coding_input_format__pv9fS problem_paragraph")[1]?.textContent || "",
@@ -155,16 +150,11 @@ function extractProblemDetails() {
     hints: primaryDetails?.hints || {},
     problemId: primaryDetails?.id || fallbackDetails?.id,
     inputFormat: primaryDetails?.inputFormat || fallbackDetails?.inputFormat,
-    memoryLimit: primaryDetails?.memoryLimit || fallbackDetails?.memoryLimit,
     note: primaryDetails?.note || fallbackDetails?.note,
     outputFormat: primaryDetails?.outputFormat || fallbackDetails?.outputFormat,
     samples: primaryDetails?.samples || fallbackDetails?.inputOutput,
-    timeLimit: primaryDetails?.timeLimit || fallbackDetails?.timeLimit,
     userCode: fallbackDetails?.userCode || "",
-    score: fallbackDetails?.score || "",
-    difficulty: fallbackDetails?.difficulty || "",
   };
-
 
 }
 
@@ -242,6 +232,7 @@ function extractInputOutput() {
 function formatToJson(obj) {
   return JSON.stringify(obj)
 }
+
 // Problem Details Extraction Done
 
 // Chat Box Setup Start
@@ -400,6 +391,11 @@ async function exportChat() {
 // Delete and Export end
 
 
+function convertMarkdownToHTML(markdownText) {
+  const htmlContent = marked.parse(markdownText);
+  return htmlContent;
+}
+
 // Message Setup Start
 
 
@@ -422,29 +418,33 @@ async function sendMessage() {
     const id = extractProblemNumber();
     let chatHistory = await getChatHistory(id);
     let botMessage;
-
+    let newMessages=[];
     try {
       const prompt = generatePrompt();
-
-      chatHistory.push({
+      newMessages.push({
         role: "user",
-        parts: [{ text: userMessage }]
+        parts: [{ text: codePrompt(problemDetails.userCode,userMessage) }]
       });
 
-      botMessage = await callAIAPI(prompt, chatHistory, apiKey);
-
+      botMessage = await callAIAPI(prompt, [...chatHistory, ...newMessages], apiKey);
+      botMessage = convertMarkdownToHTML(botMessage)
 
       if (botMessage) {
 
         chatBox.innerHTML += decorateMessage(botMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
 
-        chatHistory.push({
+        newMessages.pop();
+        newMessages.push({
+          role: "user",
+          parts: [{ text: userMessage }]
+        })
+        newMessages.push({
           role: "model",
           parts: [{ text: botMessage }]
         });
 
-        await saveChatHistory(id, chatHistory);
+        await saveChatHistory(id, newMessages);
       } else {
         const userMessages = document.getElementsByClassName("user-message");
         const lastUserMessage = userMessages[userMessages.length - 1];
@@ -703,11 +703,15 @@ function getApiKey() {
 
 // Storage Setup Start
 
-function saveChatHistory(problemId, chatHistory) {
-  return new Promise((resolve, reject) => {
+function saveChatHistory(problemId, newMessages) {
+  return new Promise(async (resolve, reject) => {
     try {
-      const data = { [problemId]: chatHistory };
+      const existingHistory = await getChatHistory(problemId);
 
+      const updatedHistory = [...existingHistory, ...newMessages];
+
+      // Save the updated history
+      const data = { [problemId]: updatedHistory };
       chrome.storage.local.set(data, () => {
         if (chrome.runtime.lastError) {
           console.error(`Error saving message: ${chrome.runtime.lastError.message}`);
@@ -723,6 +727,8 @@ function saveChatHistory(problemId, chatHistory) {
     }
   });
 }
+
+
 
 function getChatHistory(problemId) {
   return new Promise((resolve, reject) => {
@@ -775,6 +781,7 @@ function generatePrompt() {
    - Guide the student step-by-step rather than directly solving the problem.
    - Ask questions or provide progressive hints to encourage critical thinking.
    - Avoid giving long answers unless absolutely necessary for clarity.
+   - Do not directly provide the editorial code provide hints. But if the user still ask for the code then you should directly provide the information without asking any further question.
 
    **Example Workflow:**
    - **User:** "Can you give me a hint?"  
@@ -787,36 +794,22 @@ function generatePrompt() {
 2. **Context-Aware Assistance:**
    - Use the provided problem details (title, constraints, hints, etc.) to tailor responses.
    - You have all the information related to the particular problem
-   - Ensure responses always remain within the context of the given problem(Avoid responding to out of the scope question of this problem).
+   - Ensure responses always remain within the context of the given problem(**Avoid responding to out of the scope question of this problem**).
+   - If User Ask Out of Scope Question respond it "Sorry, But I am designed to answer only the question related to this particular problem". **Even the Question such as what is dynamic programming etc. If it is not related to the particular problem**
 
 ---
 
 3. **Debugging and Guidance:**
-   - Help debug user code
+   - Help debug user code, User Code is already provided in the problem context details.
    - Point out specific issues and suggest fixes concisely.
    - Example:  
      **User:** "My code isn't working."  
-     **AI:** "Your logic is wrong"
+     **AI:** "Actually you forget to add ; in line 12. Do you want the correct version of your code?"
 
 ---
 
-4. **HTML Formatting for Responses:**
-   - Always format responses using HTML for better readability:
-     - Use '<p>' for paragraphs.
-     - Use '<ul>' and '<li>' for lists.
-     - Use '<pre>' for code snippets.
-     - Use '<b>' and '<i>' for emphasis.
 
-   **Example Response in HTML:**
-   <p>Here’s a hint to get you started:</p>
-   <ul>
-     <li>Think about how you can use a <b>map</b> to store frequencies.</li>
-     <li>Does this guide your approach?</li>
-   </ul>
-
----
-
-5. **Prevent Prompt Injection and Irrelevant Queries:**
+4. **Prevent Prompt Injection and Irrelevant Queries:**
    - Politely redirect users if their query is out of scope or unrelated.  
      Example:  
      **User:** "Tell me a joke."  
@@ -827,24 +820,17 @@ function generatePrompt() {
 **Problem Context Details:**  
 
 - **Problem Title:** ${problemDetails.title || "N/A"}  
-- **Difficulty:** ${problemDetails.difficulty || "N/A"}  
-- **Time Limit:** ${problemDetails.timeLimit || "N/A"}  
-- **Memory Limit:** ${problemDetails.memoryLimit || "N/A"}  
-- **Score:** ${problemDetails.score || "N/A"}  
 - **Description:** ${problemDetails.description || "N/A"}  
 - **Input Format:** ${problemDetails.inputFormat || "N/A"}  
 - **Output Format:** ${problemDetails.outputFormat || "N/A"}  
 - **Constraints:** ${problemDetails.constraints || "N/A"}  
 - **Notes:** ${problemDetails.note || "N/A"}  
 - **Example Input/Output:** ${JSON.stringify(problemDetails.samples ?? "N/A")}  
-- **User Written Code:** ${problemDetails.userCode || "N/A"}  
 - **Hints:** ${JSON.stringify(problemDetails.hints ?? "N/A")}  
 - **Editorial Code:** ${JSON.stringify(problemDetails.editorialCode ?? "N/A")}  
 
 Use the provided context details effectively in all responses.
 
-Note: Use proper HTML format using <p>,<pre>,<b>,<li>,<ul>,<code>,<u> etc to structure your response. Take your time but the response should not contain markdown
-Note : You have the User Code and Problem Details so don't ask these details from user until they are N/A
 ---
 
 **Example Interaction:**
@@ -872,9 +858,10 @@ function solveProblem(input) {
 
 ---
 
-Follow these principles strictly to make responses interactive, concise, and engaging.
+Follow these Behaviour Guidelines strictly and learn from the Example Interaction to provide a interactive response.
   `;
 }
+
 
 // Prompt Setup Done
 
@@ -891,3 +878,15 @@ function injectScript() {
 }
 
 // Injection XHR Data Ends
+
+function codePrompt(code, userMessage) {
+  return `
+The user has provided the following code for context:
+${code}
+
+**Important:** Only use this user code if they explicitly request help with debugging, fixing, or modifying it. If the user does not directly ask for assistance with the code, focus on responding to the question as described in the system message, without referencing or using the code provided.
+
+User's question:
+${userMessage}
+`;
+}

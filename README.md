@@ -20,10 +20,11 @@ response of the particular problem response**
 
 ### 🔑 Personalization
 - **Custom API Key Support**: Integrate your own API key to tailor the chatbot's behavior and enhance privacy.
-- **Problem Details Information**: The Chatbot already have the access of the problem title, description, score, time limit, space limit, score, input format, output format, note, samples examples, user's code, hints, editorial code
+- **Problem Details Information**: The Chatbot already have the access of the problem title, description, input format, output format, note, samples examples, user's code, hints, editorial code.
+- **Markdown Supported**: Provide the AI Response in a proper markdown structure for better readibility.
 
 ### 🧠 AI-Driven Assistance
-- **Scoped AI Training**: Focused exclusively on solving specific problems, ensuring responses stay relevant and on-point.
+- **Scoped AI Training**: Focused exclusively on solving specific problems, ensuring responses stay relevant and on-point as a Mentor
 - **Context Retention**: Keeps track of previous discussions for a more cohesive conversational flow.
 - **Advanced Data Extraction**: Extract problem details, user-submitted code, hints, and editorial solutions with ease.
 - **Fallback Mechanism**: The extension uses fallback mechanism to retrieve the problem Details both from the (XHR Request and through DOM)
@@ -66,11 +67,5 @@ response of the particular problem response**
 2. Configure the API key in the popup.
 3. Begin chatting with the bot using text or voice input.
 4. Access additional features, such as exporting chats or deleting history etc...
-
----
-
-## Contributing
-
-We welcome contributions! Whether it's suggesting new features, reporting bugs, or enhancing the code, feel free to open a pull request or create an issue.
 
 ---
