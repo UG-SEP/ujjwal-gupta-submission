@@ -351,6 +351,9 @@ function deleteChatHistory() {
   const textArea = document.getElementById('userMessage')
   textArea.innerHTML = '';
   chatBox.innerHTML = '';
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+  }
   deleteChatHistoryStorage(problemDetails.problemId)
 
 }
@@ -366,7 +369,7 @@ async function exportChat() {
 
     messages.forEach((message) => {
       let messageText = message.parts[0]?.text;
-      messageText = messageText.replace(/<\/?[^>]+(>|$)/g, "");
+      messageText = messageText.replace(/(\*\*|__)(.*?)\1|(\*|_)(.*?)\3|`(.*?)`|\[(.*?)\]\((.*?)\)|^#+\s*|>\s*|[-+*]\s+|\d+\.\s+/g, "");
       if (messageText) {
         if (message.role === "user") {
 
