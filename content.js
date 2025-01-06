@@ -369,7 +369,13 @@ async function exportChat() {
 
     messages.forEach((message) => {
       let messageText = message.parts[0]?.text;
-      messageText = messageText.replace(/(\*\*|__)(.*?)\1|(\*|_)(.*?)\3|`(.*?)`|\[(.*?)\]\((.*?)\)|^#+\s*|>\s*|[-+*]\s+|\d+\.\s+/g, "");
+      messageText = messageText
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, "&")
+      .replace(/<\/?[^>]+(>|$)/g, "");
       if (messageText) {
         if (message.role === "user") {
 
